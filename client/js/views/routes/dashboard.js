@@ -78,7 +78,7 @@ export function createDashboardPage(ctx) {
         '<div class="card">' +
         "<div class='section-label'>최근 컨디션</div>" +
         (latestC
-          ? `<p>피로 지수 <b>${latestC.fatigue}</b>/100 · 피부 <b>${escapeHtml(latestC.skin)}</b> · 기분 <b>${escapeHtml(latestC.mood)}</b></p><p class="muted small">${new Date(latestC.at).toLocaleString('ko-KR')}</p>`
+          ? `<p>주관적 피로 <b>${latestC.fatigueSelf != null && latestC.fatigueSelf !== '' ? `${latestC.fatigueSelf}/10` : '—'}</b> · 분석 피로 <b>${latestC.fatigue}</b>/100 · 피부 <b>${escapeHtml(latestC.skin)}</b> · 기분 <b>${escapeHtml(latestC.mood)}</b></p><p class="muted small">${new Date(latestC.at).toLocaleString('ko-KR')}</p>`
           : '<p class="muted">아직 분석 기록이 없습니다. 컨디션 분석에서 촬영해 보세요.</p>') +
         '</div>' +
         '<div class="card">' +
