@@ -2,7 +2,7 @@ import { escapeHtml } from '../../utils/html.js';
 import { chartBars } from '../../utils/chart.js';
 import { fileToBase64 } from '../../utils/file.js';
 
-function attachConditionCameraHandlers(st, render, apiClient) {
+function attachConditionCameraHandlers(st, render, apiClient, loadCondition) {
   window.startConditionCamera = async function () {
     const video = document.getElementById('cond-video');
     const panel = document.getElementById('cond-camera-panel');
@@ -101,6 +101,7 @@ function attachConditionCameraHandlers(st, render, apiClient) {
   };
 
   window.runConditionAnalyze = function () {
+    if (st.analyzing) return;
     const fat = document.getElementById('fatigue-self');
     const v = fat ? fat.value : '';
     const fileEl = document.getElementById('face-file');
@@ -110,6 +111,8 @@ function attachConditionCameraHandlers(st, render, apiClient) {
       : fileEl && fileEl.files && fileEl.files[0]
         ? fileToBase64(fileEl.files[0])
         : Promise.resolve(null);
+    st.analyzing = true;
+    render();
     p.then((b64) =>
       apiClient('/api/condition/analyze', {
         method: 'POST',
@@ -117,6 +120,7 @@ function attachConditionCameraHandlers(st, render, apiClient) {
       }),
     )
       .then(() => {
+        st.analyzing = false;
         st.cameraB64 = null;
         if (st._stream) {
           st._stream.getTracks().forEach((t) => t.stop());
@@ -126,12 +130,17 @@ function attachConditionCameraHandlers(st, render, apiClient) {
         if (video) video.srcObject = null;
         const panel = document.getElementById('cond-camera-panel');
         if (panel) panel.style.display = 'none';
-        st.loading = true;
-        st.list = null;
         window._hcDash = { loading: true };
+        return loadCondition();
+      })
+      .then((list) => {
+        st.list = Array.isArray(list) ? list : [];
+        st.loading = false;
         render();
       })
       .catch((e) => {
+        st.analyzing = false;
+        render();
         alert(e.message || '분석 실패');
       });
   };
@@ -144,10 +153,17 @@ export function createConditionPage(ctx) {
     title: '컨디션 분석',
     render() {
       if (!window._hcCond) {
-        window._hcCond = { list: null, loading: true, cameraB64: null, _stream: null };
+        window._hcCond = {
+          list: null,
+          loading: true,
+          analyzing: false,
+          cameraB64: null,
+          _stream: null,
+        };
       }
       const st = window._hcCond;
-      if (st.loading && st.list === null) {
+      if (typeof st.analyzing !== 'boolean') st.analyzing = false;
+      if (st.loading && st.list === null && !st.analyzing) {
         loadCondition().then((list) => {
           st.list = list;
           st.loading = false;
@@ -156,7 +172,7 @@ export function createConditionPage(ctx) {
         return "<div class='card'><i class='fa fa-spinner fa-spin'></i> 불러오는 중...</div>";
       }
       if (typeof st.cameraB64 === 'undefined') st.cameraB64 = null;
-      attachConditionCameraHandlers(st, render, apiClient);
+      attachConditionCameraHandlers(st, render, apiClient, loadCondition);
 
       const hist = (st.list || []).slice(0, 14);
       const fatigueTrend = hist.map((x) => x.fatigue).reverse();
@@ -170,16 +186,16 @@ export function createConditionPage(ctx) {
         '<div class="card">' +
         "<div class='section-label'><i class='fa fa-camera'></i> 웹캠으로 촬영</div>" +
         '<p class="muted small">PC·모바일 브라우저에서 전면 카메라로 바로 찍어 분석할 수 있습니다.</p>' +
-        '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px">' +
+        '<div class="cond-camera-actions">' +
         '<button type="button" class="btn-primary" onclick="startConditionCamera()">카메라 켜기</button>' +
         '<button type="button" class="btn-secondary" onclick="snapConditionCamera()">촬영</button>' +
         '<button type="button" class="btn-secondary" onclick="stopConditionCamera()">카메라 끄기</button>' +
         '</div>' +
         '<div id="cond-camera-panel" style="display:none;margin-top:8px">' +
-        '<video id="cond-video" autoplay playsinline muted style="width:100%;max-width:480px;border-radius:12px;background:#0a1520;display:block"></video>' +
+        '<video id="cond-video" autoplay playsinline muted style="width:100%;max-width:480px;border-radius:12px;background:#ece8e4;display:block"></video>' +
         '<canvas id="cond-canvas" style="display:none"></canvas>' +
-        '<img id="cond-capture-preview" alt="" style="display:none;width:100%;max-width:480px;border-radius:12px;margin-top:10px;border:2px solid #22d6b1"/>' +
-        '<p id="cond-camera-hint" class="small" style="margin-top:10px;color:#a8e8d8"></p>' +
+        '<img id="cond-capture-preview" alt="" style="display:none;width:100%;max-width:480px;border-radius:12px;margin-top:10px;border:2px solid #c4a9a9"/>' +
+        '<p id="cond-camera-hint" class="small" style="margin-top:10px;color:#8a8580"></p>' +
         '</div>' +
         '</div>' +
         '<div class="card">' +
@@ -191,12 +207,17 @@ export function createConditionPage(ctx) {
         "<div class='section-label'>피로도 & 분석</div>" +
         '<label>주관적 피로 (1–10)</label> ' +
         '<input type="range" id="fatigue-self" min="1" max="10" value="5" style="width:200px;vertical-align:middle" oninput="document.getElementById(\'fatigue-self-val\').textContent=this.value"/>' +
-        ' <strong id="fatigue-self-val" style="color:#3af2cf;font-size:1.1rem">5</strong>' +
+        ' <strong id="fatigue-self-val" style="color:#9a7b7b;font-size:1.1rem">5</strong>' +
         '<span class="muted small" style="margin-left:6px">/10</span>' +
-        '<button type="button" class="btn-primary" style="margin-left:12px" onclick="runConditionAnalyze()">분석하기</button>' +
+        `<button type="button" class="btn-primary" style="margin-left:12px" onclick="runConditionAnalyze()" ${st.analyzing ? 'disabled' : ''}>` +
+        (st.analyzing ? '<i class="fa fa-spinner fa-spin"></i> 분석 중…' : '분석하기') +
+        '</button>' +
         '</div>' +
+        (st.analyzing
+          ? '<div class="card cond-analyzing-banner"><p style="margin:0"><i class="fa fa-circle-notch fa-spin"></i> <strong>분석 중입니다.</strong> 잠시만 기다려 주세요.</p></div>'
+          : '') +
         (fatigueTrend.length
-          ? `<div class="card"><div class="section-label">피로 지수 추세 (최근 기록)</div>${chartBars(fatigueTrend, trendLbl, '#f0c040')}</div>`
+          ? `<div class="card"><div class="section-label">피로 지수 추세 (최근 기록)</div>${chartBars(fatigueTrend, trendLbl, '#b8956c')}</div>`
           : '') +
         '<div class="card">' +
         "<div class='section-label'>기록</div>" +
@@ -205,7 +226,7 @@ export function createConditionPage(ctx) {
               .map((x) => {
                 const tag =
                   x.source === 'github_models'
-                    ? '<span style="background:#1a4d4a;padding:2px 8px;border-radius:6px;font-size:0.82rem;margin-left:6px">GitHub Models' +
+                    ? '<span style="background:#ebe6e1;color:#4a4540;padding:2px 8px;border-radius:6px;font-size:0.82rem;margin-left:6px">GitHub Models' +
                       (x.aiModel ? ' · ' + escapeHtml(x.aiModel) : '') +
                       '</span>'
                     : '<span style="opacity:0.85;font-size:0.82rem;margin-left:6px">(데모)</span>';

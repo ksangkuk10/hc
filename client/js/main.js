@@ -6,9 +6,50 @@ import { chartBars } from './utils/chart.js';
 import { fileToBase64 } from './utils/file.js';
 import { menuItems } from './views/menu.js';
 import { createRoutes } from './views/routes/index.js';
+import { LAST_LOGIN_EMAIL_KEY } from './config.js';
+
+function getLastLoginEmail() {
+  try {
+    return localStorage.getItem(LAST_LOGIN_EMAIL_KEY) || '';
+  } catch {
+    return '';
+  }
+}
+
+function setLastLoginEmail(email) {
+  const e = String(email || '').trim();
+  if (!e) return;
+  try {
+    localStorage.setItem(LAST_LOGIN_EMAIL_KEY, e);
+  } catch {
+    /* */
+  }
+}
 
 let isLogin = false;
 let routes = {};
+
+/** 로그인/가입 직후: 화면 캐시를 현재 세션용으로 초기화 */
+function resetCachesForNewSession() {
+  window._hcState = {};
+  window._hcDash = { loading: true };
+  window._hcCond = { list: null, loading: true, analyzing: false };
+  window._hcFood = { list: null, loading: true, analyzing: false };
+  window._hcConsult = { list: null, loading: true, aiBusy: false };
+  window._hcSet = { settings: null, loading: true };
+  window._hcContactPage = { loading: false, error: null, aiText: null, note: '', model: '' };
+}
+
+/** 로그아웃: 이전 사용자 건강·상담 등 데이터가 메모리에 남지 않도록 제거 */
+function clearCachesOnLogout() {
+  window._hcState = {};
+  window._hcDash = null;
+  window._hcCond = null;
+  window._hcFood = null;
+  window._hcConsult = null;
+  window._hcSet = null;
+  window._hcContactPage = null;
+}
 
 function updateHeaderProfile() {
   const el = document.getElementById('header-profile');
@@ -60,22 +101,27 @@ function render() {
 
 function renderLogin() {
   const modal = document.getElementById('login-modal');
+  const lastEmail = escapeHtml(getLastLoginEmail());
   modal.style.display = 'flex';
   modal.innerHTML =
     '<div class="login-card">' +
-    '<h2 style="color:#3af2cf;letter-spacing:1px">🧬 HealthCare</h2>' +
+    '<h2 style="color:#1a1a1a;letter-spacing:0.08em;font-weight:700;text-transform:uppercase">HealthCare</h2>' +
     '<p class="muted small" style="margin-bottom:16px">건강 기록·컨디션·식단·상담을 한곳에서 (데모)</p>' +
     '<div class="login-tabs">' +
     '<button type="button" id="tab-login" class="active" onclick="showLoginTab(\'login\')">로그인</button>' +
     '<button type="button" id="tab-register" onclick="showLoginTab(\'register\')">회원가입</button>' +
     '</div>' +
     '<div id="panel-login">' +
-    '<input id="uid" type="email" placeholder="이메일" autocomplete="username"/>' +
+    '<input id="uid" type="email" placeholder="이메일" autocomplete="username" value="' +
+    lastEmail +
+    '"/>' +
     '<input id="pw" type="password" placeholder="비밀번호" autocomplete="current-password"/>' +
     '<button type="button" onclick="login()">로그인</button>' +
     '</div>' +
     '<div id="panel-register" style="display:none">' +
-    '<input id="reg-email" type="email" placeholder="이메일"/>' +
+    '<input id="reg-email" type="email" placeholder="이메일" value="' +
+    lastEmail +
+    '"/>' +
     '<input id="reg-name" placeholder="이름"/>' +
     '<input id="reg-pw" type="password" placeholder="비밀번호 (4자 이상)"/>' +
     '<button type="button" onclick="register()">가입하고 시작</button>' +
@@ -132,16 +178,12 @@ window.route = function (page) {
 window.login = function () {
   const email = document.getElementById('uid').value;
   const pw = document.getElementById('pw').value;
+  setLastLoginEmail(email);
   api('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password: pw }) })
     .then((j) => {
       setToken(j.token);
       isLogin = true;
-      window._hcState = {};
-      window._hcDash = { loading: true };
-      window._hcCond = { list: null, loading: true };
-      window._hcFood = { list: null, loading: true };
-      window._hcConsult = { list: null, loading: true };
-      window._hcSet = { settings: null, loading: true };
+      resetCachesForNewSession();
       document.getElementById('login-modal').style.display = 'none';
       window.location.hash = 'dashboard';
       updateHeaderProfile();
@@ -156,6 +198,7 @@ window.register = function () {
   const email = document.getElementById('reg-email').value;
   const name = document.getElementById('reg-name').value;
   const pw = document.getElementById('reg-pw').value;
+  setLastLoginEmail(email);
   api('/api/auth/register', {
     method: 'POST',
     body: JSON.stringify({ email, password: pw, name }),
@@ -163,12 +206,7 @@ window.register = function () {
     .then((j) => {
       setToken(j.token);
       isLogin = true;
-      window._hcState = {};
-      window._hcDash = { loading: true };
-      window._hcCond = { list: null, loading: true };
-      window._hcFood = { list: null, loading: true };
-      window._hcConsult = { list: null, loading: true };
-      window._hcSet = { settings: null, loading: true };
+      resetCachesForNewSession();
       document.getElementById('login-modal').style.display = 'none';
       window.location.hash = 'dashboard';
       updateHeaderProfile();
@@ -183,9 +221,7 @@ window.logout = function () {
   api('/api/auth/logout', { method: 'POST', body: '{}' }).catch(() => {});
   setToken(null);
   isLogin = false;
-  window._hcState = {};
-  window._hcDash = null;
-  window._hcSet = null;
+  clearCachesOnLogout();
   window.location.hash = '';
   updateHeaderProfile();
   render();

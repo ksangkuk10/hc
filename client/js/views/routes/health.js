@@ -96,7 +96,7 @@ export function createHealthPage(ctx) {
         '<button type="button" class="btn-primary" onclick="saveHealth()">저장</button>' +
         '</div>' +
         (hasW
-          ? `<div class="card"><div class="section-label">체중 추세 (14일)</div>${chartBars(weightSeries, wLabels, '#6eb7ff')}</div>`
+          ? `<div class="card"><div class="section-label">체중 추세 (14일)</div>${chartBars(weightSeries, wLabels, '#9a7b7b')}</div>`
           : '') +
         (yestData
           ? `<div class="card"><div class="section-label">전날 (${yest})</div><p>걷기 <b>${yestData.walk || '—'}</b>분 · 달리기 <b>${yestData.run || '—'}</b>분 · 수면 <b>${yestData.sleep || '—'}</b>h · 체중 <b>${yestData.weight || '—'}</b>kg · 혈압 <b>${yestData.bpSys && yestData.bpDia ? `${yestData.bpSys}/${yestData.bpDia}` : '—'}</b></p></div>`

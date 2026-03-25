@@ -2,7 +2,7 @@ import { escapeHtml } from '../../utils/html.js';
 import { fileToBase64 } from '../../utils/file.js';
 import { compressFoodImageToMaxBytes } from '../../utils/imageCompress.js';
 
-function attachFoodCameraHandlers(st, render, apiClient) {
+function attachFoodCameraHandlers(st, render, apiClient, loadFood) {
   window.startFoodCamera = async function () {
     const video = document.getElementById('food-video');
     const panel = document.getElementById('food-camera-panel');
@@ -103,6 +103,7 @@ function attachFoodCameraHandlers(st, render, apiClient) {
   };
 
   window.runFoodAnalyze = function () {
+    if (st.analyzing) return;
     const label = document.getElementById('food-label').value;
     const fileEl = document.getElementById('food-file');
     const useCamera = st.cameraB64;
@@ -116,6 +117,8 @@ function attachFoodCameraHandlers(st, render, apiClient) {
       : fileEl && fileEl.files && fileEl.files[0]
         ? fileToBase64(fileEl.files[0])
         : Promise.resolve(null);
+    st.analyzing = true;
+    render();
     p.then(async (b64) => {
       const payload = { label, imageBase64: null, imageMime: 'image/jpeg' };
       if (b64) {
@@ -129,6 +132,7 @@ function attachFoodCameraHandlers(st, render, apiClient) {
       });
     })
       .then(() => {
+        st.analyzing = false;
         st.cameraB64 = null;
         if (st._stream) {
           st._stream.getTracks().forEach((t) => t.stop());
@@ -138,12 +142,17 @@ function attachFoodCameraHandlers(st, render, apiClient) {
         if (video) video.srcObject = null;
         const panel = document.getElementById('food-camera-panel');
         if (panel) panel.style.display = 'none';
-        st.loading = true;
-        st.list = null;
         window._hcDash = { loading: true };
+        return loadFood();
+      })
+      .then((list) => {
+        st.list = Array.isArray(list) ? list : [];
+        st.loading = false;
         render();
       })
       .catch((e) => {
+        st.analyzing = false;
+        render();
         alert(e.message || '분석 실패');
       });
   };
@@ -156,10 +165,17 @@ export function createFoodPage(ctx) {
     title: '음식 & 식단 분석',
     render() {
       if (!window._hcFood) {
-        window._hcFood = { list: null, loading: true, cameraB64: null, _stream: null };
+        window._hcFood = {
+          list: null,
+          loading: true,
+          analyzing: false,
+          cameraB64: null,
+          _stream: null,
+        };
       }
       const st = window._hcFood;
-      if (st.loading && st.list === null) {
+      if (typeof st.analyzing !== 'boolean') st.analyzing = false;
+      if (st.loading && st.list === null && !st.analyzing) {
         loadFood().then((list) => {
           st.list = list;
           st.loading = false;
@@ -168,7 +184,7 @@ export function createFoodPage(ctx) {
         return "<div class='card'><i class='fa fa-spinner fa-spin'></i> 불러오는 중...</div>";
       }
       if (typeof st.cameraB64 === 'undefined') st.cameraB64 = null;
-      attachFoodCameraHandlers(st, render, apiClient);
+      attachFoodCameraHandlers(st, render, apiClient, loadFood);
 
       const hist = st.list || [];
       return (
@@ -177,16 +193,16 @@ export function createFoodPage(ctx) {
         '<div class="card">' +
         "<div class='section-label'><i class='fa fa-camera'></i> 웹캠으로 음식 촬영</div>" +
         '<p class="muted small">후면 카메라를 우선 시도합니다(없으면 전면).</p>' +
-        '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px">' +
+        '<div class="food-camera-actions">' +
         '<button type="button" class="btn-primary" onclick="startFoodCamera()">카메라 켜기</button>' +
         '<button type="button" class="btn-secondary" onclick="snapFoodCamera()">촬영</button>' +
         '<button type="button" class="btn-secondary" onclick="stopFoodCamera()">카메라 끄기</button>' +
         '</div>' +
         '<div id="food-camera-panel" style="display:none;margin-top:8px">' +
-        '<video id="food-video" autoplay playsinline muted style="width:100%;max-width:480px;border-radius:12px;background:#0a1520;display:block"></video>' +
+        '<video id="food-video" autoplay playsinline muted style="width:100%;max-width:480px;border-radius:12px;background:#ece8e4;display:block"></video>' +
         '<canvas id="food-canvas" style="display:none"></canvas>' +
-        '<img id="food-capture-preview" alt="" style="display:none;width:100%;max-width:480px;border-radius:12px;margin-top:10px;border:2px solid #22d6b1"/>' +
-        '<p id="food-camera-hint" class="small" style="margin-top:10px;color:#a8e8d8"></p>' +
+        '<img id="food-capture-preview" alt="" style="display:none;width:100%;max-width:480px;border-radius:12px;margin-top:10px;border:2px solid #c4a9a9"/>' +
+        '<p id="food-camera-hint" class="small" style="margin-top:10px;color:#8a8580"></p>' +
         '</div>' +
         '</div>' +
         '<div class="card">' +
@@ -197,8 +213,13 @@ export function createFoodPage(ctx) {
         "<div class='section-label'>갤러리에서 선택</div>" +
         '<input type="file" id="food-file" accept="image/*" />' +
         '<p class="muted small">웹캠 촬영이 있으면 그것이 우선합니다.</p>' +
-        '<button type="button" class="btn-primary" onclick="runFoodAnalyze()">분석 및 기록</button>' +
+        `<button type="button" class="btn-primary" onclick="runFoodAnalyze()" ${st.analyzing ? 'disabled' : ''}>` +
+        (st.analyzing ? '<i class="fa fa-spinner fa-spin"></i> 분석 중…' : '분석 및 기록') +
+        '</button>' +
         '</div>' +
+        (st.analyzing
+          ? '<div class="card cond-analyzing-banner"><p style="margin:0"><i class="fa fa-circle-notch fa-spin"></i> <strong>분석 중입니다.</strong> 잠시만 기다려 주세요.</p></div>'
+          : '') +
         '<div class="card">' +
         "<div class='section-label'>식단 이력</div>" +
         (hist.length
@@ -206,7 +227,7 @@ export function createFoodPage(ctx) {
               .map((x) => {
                 const tag =
                   x.source === 'github_models'
-                    ? '<span style="background:#1a4d4a;padding:2px 8px;border-radius:6px;font-size:0.82rem;margin-left:6px">GitHub Models' +
+                    ? '<span style="background:#ebe6e1;color:#4a4540;padding:2px 8px;border-radius:6px;font-size:0.82rem;margin-left:6px">GitHub Models' +
                       (x.aiModel ? ' · ' + escapeHtml(x.aiModel) : '') +
                       '</span>'
                     : '<span style="opacity:0.85;font-size:0.82rem;margin-left:6px">(데모)</span>';
@@ -219,12 +240,12 @@ export function createFoodPage(ctx) {
                 const mime = x.imageMime && /^image\//.test(x.imageMime) ? x.imageMime : 'image/jpeg';
                 const thumb =
                   x.imageBase64 && String(x.imageBase64).length > 0
-                    ? `<div style="margin:10px 0"><img src="data:${mime};base64,${String(x.imageBase64).replace(/"/g, '')}" alt="" style="max-width:240px;max-height:240px;border-radius:12px;object-fit:cover;border:1px solid #2a6a60;box-shadow:0 2px 12px #0003"/></div>`
+                    ? `<div style="margin:10px 0"><img src="data:${mime};base64,${String(x.imageBase64).replace(/"/g, '')}" alt="" style="max-width:240px;max-height:240px;border-radius:12px;object-fit:cover;border:1px solid #e8e2dc;box-shadow:0 2px 12px rgba(28,24,22,0.08)"/></div>`
                     : '<p class="muted small" style="margin:8px 0 0">저장된 사진 없음 (텍스트만 분석 또는 이미지 용량 한도 초과)</p>';
                 const n = x.nutrition || {};
                 return (
                   `<li style="padding-bottom:16px">` +
-                  `<div class="muted small" style="margin-bottom:8px"><i class="fa fa-calendar"></i> 기록일시: <strong style="color:#a8e8d8">${escapeHtml(when)}</strong></div>` +
+                  `<div class="muted small" style="margin-bottom:8px"><i class="fa fa-calendar"></i> 기록일시: <strong style="color:#9a7b7b">${escapeHtml(when)}</strong></div>` +
                   thumb +
                   `<strong>${escapeHtml(x.label)}</strong>${tag}<br/>` +
                   `${n.kcal != null ? n.kcal : '—'}kcal · 단백질 ${n.proteinG != null ? n.proteinG : '—'}g · 나트륨 약 ${n.sodiumMg != null ? n.sodiumMg : '—'}mg<br/>` +

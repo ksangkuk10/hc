@@ -2,7 +2,6 @@ const crypto = require('crypto');
 const express = require('express');
 const db = require('../../db');
 const { requireAuth } = require('../middleware/auth');
-
 const router = express.Router();
 
 router.get('/', requireAuth, async (req, res) => {

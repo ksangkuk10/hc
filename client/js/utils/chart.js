@@ -13,7 +13,7 @@ export function chartBars(values, labels, color) {
     const x = 10 + i * (bw + 2);
     const y = h - 8 - bh;
     rects += `<rect x="${x}" y="${y}" width="${bw}" height="${bh}" rx="3" fill="${color}" opacity="0.85"/>`;
-    rects += `<text x="${x + bw / 2}" y="${h - 2}" font-size="9" fill="#a8e0d8" text-anchor="middle">${escapeHtml(labels[i])}</text>`;
+    rects += `<text x="${x + bw / 2}" y="${h - 2}" font-size="9" fill="#6b6b6b" text-anchor="middle">${escapeHtml(labels[i])}</text>`;
   }
   return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="max-width:100%">${rects}</svg>`;
 }

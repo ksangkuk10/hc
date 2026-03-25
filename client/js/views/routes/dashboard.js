@@ -72,13 +72,24 @@ export function createDashboardPage(ctx) {
         '<div class="dash-grid">' +
         '<div class="card">' +
         `<div class='section-label'>오늘의 요약 · ${today}</div>` +
-        `<p>걷기 <b>${todayRow.walk || '—'}</b>분 · 달리기 <b>${todayRow.run || '—'}</b>분 · 수면 <b>${todayRow.sleep || '—'}</b>h · 체중 <b>${todayRow.weight || '—'}</b>kg</p>` +
-        `<p>혈압 <b>${todayRow.bpSys && todayRow.bpDia ? `${todayRow.bpSys}/${todayRow.bpDia}` : '—'}</b></p>` +
+        `<div class="dash-today-summary">` +
+        `<p>걷기 <b>${escapeHtml(String(todayRow.walk != null && todayRow.walk !== '' ? todayRow.walk : '—'))}</b> 분</p>` +
+        `<p>달리기 <b>${escapeHtml(String(todayRow.run != null && todayRow.run !== '' ? todayRow.run : '—'))}</b> 분</p>` +
+        `<p>수면 <b>${escapeHtml(String(todayRow.sleep != null && todayRow.sleep !== '' ? todayRow.sleep : '—'))}</b> h</p>` +
+        `<p>체중 <b>${escapeHtml(String(todayRow.weight != null && todayRow.weight !== '' ? todayRow.weight : '—'))}</b> kg</p>` +
+        `<p>혈압 <b>${todayRow.bpSys && todayRow.bpDia ? escapeHtml(`${todayRow.bpSys}/${todayRow.bpDia}`) : '—'}</b></p>` +
+        `</div>` +
         '</div>' +
         '<div class="card">' +
         "<div class='section-label'>최근 컨디션</div>" +
         (latestC
-          ? `<p>주관적 피로 <b>${latestC.fatigueSelf != null && latestC.fatigueSelf !== '' ? `${latestC.fatigueSelf}/10` : '—'}</b> · 분석 피로 <b>${latestC.fatigue}</b>/100 · 피부 <b>${escapeHtml(latestC.skin)}</b> · 기분 <b>${escapeHtml(latestC.mood)}</b></p><p class="muted small">${new Date(latestC.at).toLocaleString('ko-KR')}</p>`
+          ? `<div class="dash-recent-cond">` +
+            `<p>주관적 피로 <b>${latestC.fatigueSelf != null && latestC.fatigueSelf !== '' ? `${latestC.fatigueSelf}/10` : '—'}</b></p>` +
+            `<p>분석 피로 <b>${escapeHtml(String(latestC.fatigue))}</b> / 100</p>` +
+            `<p>피부 <b>${escapeHtml(latestC.skin)}</b></p>` +
+            `<p>기분 <b>${escapeHtml(latestC.mood)}</b></p>` +
+            `<p class="muted small" style="margin-top:8px">${escapeHtml(new Date(latestC.at).toLocaleString('ko-KR'))}</p>` +
+            `</div>`
           : '<p class="muted">아직 분석 기록이 없습니다. 컨디션 분석에서 촬영해 보세요.</p>') +
         '</div>' +
         '<div class="card">' +
@@ -90,7 +101,7 @@ export function createDashboardPage(ctx) {
         '</div>' +
         '<div class="card">' +
         "<div class='section-label'>지난 7일 걷기(분)</div>" +
-        chartBars(walkSeries, lbls, '#2fdca4') +
+        chartBars(walkSeries, lbls, '#b8956c') +
         '</div>' +
         '<div class="dash-grid two">' +
         '<div class="card">' +

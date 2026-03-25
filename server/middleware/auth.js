@@ -1,3 +1,7 @@
+/**
+ * 세션의 Bearer 토큰만으로 사용자를 식별합니다. 요청 본문·쿼리의 userId는 신뢰하지 않습니다.
+ * 건강·컨디션·식단·상담 등 저장소 키는 항상 `user:${req.user.userId}:…` 형태만 사용해야 합니다.
+ */
 const { getKey } = require('../lib/dbKeys');
 
 async function getUserFromToken(req) {

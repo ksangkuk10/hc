@@ -4,6 +4,7 @@ import { createConditionPage } from './condition.js';
 import { createFoodPage } from './food.js';
 import { createGuidePage } from './guide.js';
 import { createConsultPage } from './consult.js';
+import { createContactPage } from './contact.js';
 import { createSettingsPage } from './settings.js';
 
 export function createRoutes(ctx) {
@@ -14,6 +15,7 @@ export function createRoutes(ctx) {
     food: createFoodPage(ctx),
     guide: createGuidePage(),
     consult: createConsultPage(ctx),
+    contact: createContactPage(ctx),
     settings: createSettingsPage(ctx),
   };
 }

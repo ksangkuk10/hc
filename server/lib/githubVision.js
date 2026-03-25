@@ -213,9 +213,111 @@ async function analyzeFoodImage(imageBase64Plain, mimeType = 'image/jpeg', userL
   };
 }
 
+/**
+ * 텍스트 전용 채팅 완성 (증상 상담 등)
+ * @returns {Promise<string|null>}
+ */
+async function chatCompletionText(systemPrompt, userText) {
+  const token = getToken();
+  if (!token || !userText || String(userText).trim().length < 3) return null;
+
+  const model = getModel();
+  const messages = [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: String(userText).trim().slice(0, 8000) },
+  ];
+
+  try {
+    const res = await fetch(GITHUB_MODELS_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/vnd.github+json',
+        'Content-Type': 'application/json',
+        'X-GitHub-Api-Version': '2026-03-10',
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        max_tokens: 2500,
+        temperature: 0.35,
+      }),
+    });
+
+    const rawText = await res.text();
+    if (!res.ok) {
+      console.error('[chatCompletionText]', res.status, rawText.slice(0, 500));
+      return null;
+    }
+
+    let data;
+    try {
+      data = JSON.parse(rawText);
+    } catch {
+      return null;
+    }
+
+    const content = data.choices?.[0]?.message?.content;
+    if (!content || typeof content !== 'string') return null;
+    return content.trim();
+  } catch (e) {
+    console.error('[chatCompletionText]', e.message || e);
+    return null;
+  }
+}
+
+/**
+ * 증상 기반 교육용 설명 (진단·처방 대체 아님)
+ * @param {string} symptoms
+ * @returns {Promise<string|null>}
+ */
+async function analyzeSymptomsEducation(symptoms) {
+  const systemPrompt = [
+    'You are assisting with general health education in Korean only.',
+    'The user describes symptoms. You must NOT replace a doctor or give a definitive diagnosis.',
+    'Explain in clear Korean:',
+    '1) Possible differential conditions that might be discussed with a clinician (use cautious wording: "가능성이 있는 질환으로는", "의심 소견이 있을 수 있는 경우" 등).',
+    '2) Typical evaluation steps or general treatment approaches that are commonly known (not personalized prescriptions).',
+    '3) Red flags / when to seek urgent or emergency care.',
+    '4) Short disclaimer: this is not medical advice; see a qualified professional.',
+    'Use structured sections with headings. No JSON. No markdown code fences.',
+  ].join(' ');
+
+  const userText = `현재 느끼는 증상:\n${String(symptoms).trim()}\n\n위 증상에 대해 예상될 수 있는 질환 방향(감별 진단)과 일반적인 치료·경과 관찰에 대해 교육 목적으로 설명해 주세요.`;
+
+  return chatCompletionText(systemPrompt, userText);
+}
+
+/**
+ * 위경도 기준 응급·병원 안내 (교육·참고용, 실시간·정확한 목록 보장 아님)
+ * @param {number} lat
+ * @param {number} lng
+ * @returns {Promise<string|null>}
+ */
+async function suggestNearbyHospitalsByLocation(lat, lng) {
+  const systemPrompt = [
+    'You assist Korean-speaking users with orientation to emergency care only.',
+    'The user shares approximate WGS84 latitude and longitude (likely in South Korea).',
+    'Respond ONLY in Korean. Suggest up to 5 hospitals or regional medical centers that commonly',
+    'have emergency departments, using general geographic knowledge for that area.',
+    'Use a numbered list. For each: facility name; approximate direction/distance from the point if reasonable;',
+    'if a widely known public phone exists, include it — otherwise write "대표번호는 병원·1339 또는 지도 앱에서 확인".',
+    'Begin with one short sentence that knowledge may be incomplete or outdated and is not a substitute for 119/1339.',
+    'End with a reminder to verify by phone, official apps, or emergency services.',
+    'No markdown code fences. No JSON.',
+  ].join(' ');
+
+  const userText = `현재 위치: 위도 ${Number(lat).toFixed(5)}, 경도 ${Number(lng).toFixed(5)}.\n이 근처에서 응급실이 있는 병원을 최대 5곳까지 안내해 주세요.`;
+
+  return chatCompletionText(systemPrompt, userText);
+}
+
 module.exports = {
   analyzeFaceWellness,
   analyzeFoodImage,
+  chatCompletionText,
+  analyzeSymptomsEducation,
+  suggestNearbyHospitalsByLocation,
   getToken,
   getModel,
 };
