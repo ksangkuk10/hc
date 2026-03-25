@@ -59,6 +59,10 @@ const en = {
   'dashboard.reminders': 'Reminders',
   'dashboard.noReminders': 'No reminders. Add in Settings.',
   'dashboard.goalMeta': '{{pct}}% · target {{target}}{{unit}}',
+  'dashboard.goalMetaSleep7d':
+    '{{pct}}% · avg sleep {{avg}} h ({{days}} day(s) with data in last 7) · target {{target}}{{unit}}',
+  'dashboard.goalMetaSleep7dEmpty':
+    '{{pct}}% · no sleep entries in the last 7 days · target {{target}}{{unit}}',
   'dashboard.qaHealth': 'Exercise & sleep',
   'dashboard.qaCondition': 'Condition photo',
   'dashboard.qaFood': 'Food analysis',
@@ -284,6 +288,9 @@ export const STRINGS = {
     'dashboard.reminders': '리마인더',
     'dashboard.noReminders': '알림이 없습니다. 설정에서 추가하세요.',
     'dashboard.goalMeta': '{{pct}}% · 목표 {{target}}{{unit}}',
+    'dashboard.goalMetaSleep7d':
+      '{{pct}}% · 수면 평균 {{avg}}시간 (최근 7일 중 {{days}}일 기록) · 목표 {{target}}{{unit}}',
+    'dashboard.goalMetaSleep7dEmpty': '{{pct}}% · 최근 7일 수면 기록 없음 · 목표 {{target}}{{unit}}',
     'dashboard.qaHealth': '운동·수면 기록',
     'dashboard.qaCondition': '컨디션 촬영',
     'dashboard.qaFood': '식단 분석',

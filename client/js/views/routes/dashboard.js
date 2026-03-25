@@ -2,6 +2,35 @@ import { getDate } from '../../utils/date.js';
 import { escapeHtml } from '../../utils/html.js';
 import { chartBars } from '../../utils/chart.js';
 
+/** 목표 '하루 수면 7시간'(g2 등) — 건강 기록 최근 7일 수면 평균으로 진행률 계산 */
+function isSleepSevenHourGoal(g) {
+  if (g.id === 'g2') return true;
+  const target = Number(g.target);
+  if (target !== 7) return false;
+  const unit = String(g.unit || '');
+  if (!/시간|hour|\bh\b/i.test(unit)) return false;
+  return /수면|sleep/i.test(String(g.title || ''));
+}
+
+/**
+ * 최근 7일(오늘 포함) 중 수면이 입력된 날만 모아 평균.
+ * 기록이 없으면 { avg: 0, days: 0 }.
+ */
+function avgSleepRecordedInLast7Days(healthRows) {
+  const values = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = getDate(-i);
+    const row = (healthRows || []).find((r) => r && r.date === d);
+    if (row && row.sleep != null && row.sleep !== '') {
+      const n = Number(row.sleep);
+      if (!Number.isNaN(n)) values.push(n);
+    }
+  }
+  if (values.length === 0) return { avg: 0, days: 0 };
+  const sum = values.reduce((a, b) => a + b, 0);
+  return { avg: sum / values.length, days: values.length };
+}
+
 export function createDashboardPage(ctx) {
   const {
     render,
@@ -52,14 +81,42 @@ export function createDashboardPage(ctx) {
       const none = t('common.none');
       const goalsHtml = (st.goals || [])
         .map((g) => {
-          const pct = Math.min(
-            100,
-            Math.round((Number(g.progress) / Math.max(1, Number(g.target))) * 100),
-          );
+          let pct;
+          let metaKey = 'dashboard.goalMeta';
+          let metaVars = { pct: '', target: String(g.target), unit: g.unit || '' };
+          if (isSleepSevenHourGoal(g)) {
+            const { avg, days } = avgSleepRecordedInLast7Days(st.health || []);
+            const targetH = Math.max(0.01, Number(g.target) || 7);
+            pct =
+              days === 0 ? 0 : Math.min(100, Math.round((avg / targetH) * 100));
+            if (days === 0) {
+              metaKey = 'dashboard.goalMetaSleep7dEmpty';
+              metaVars = {
+                pct: String(pct),
+                target: String(g.target),
+                unit: g.unit || '',
+              };
+            } else {
+              metaKey = 'dashboard.goalMetaSleep7d';
+              metaVars = {
+                pct: String(pct),
+                avg: avg.toFixed(1),
+                days: String(days),
+                target: String(g.target),
+                unit: g.unit || '',
+              };
+            }
+          } else {
+            pct = Math.min(
+              100,
+              Math.round((Number(g.progress) / Math.max(1, Number(g.target))) * 100),
+            );
+            metaVars.pct = String(pct);
+          }
           return (
             `<div class="goal-row"><div class="goal-title">${escapeHtml(g.title)}</div>` +
             `<div class="progress-outer"><div class="progress-inner" style="width:${pct}%"></div></div>` +
-            `<div class="goal-meta">${escapeHtml(t('dashboard.goalMeta', { pct: String(pct), target: String(g.target), unit: g.unit || '' }))}</div></div>`
+            `<div class="goal-meta">${escapeHtml(t(metaKey, metaVars))}</div></div>`
           );
         })
         .join('');

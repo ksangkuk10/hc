@@ -1,15 +1,47 @@
-// db/leveldb.js
-// LevelDB 어댑터: 모든 DB 요청은 이 모듈을 통해 처리됨.
-// 다른 DB로 교체시에는 이 파일만 교체하면 됨.
+// LevelDB 어댑터: 값은 AES-256-GCM으로 암호화해 저장합니다.
 
-const { Level } = require('level');
 const path = require('path');
+const { Transform } = require('stream');
+const { Level } = require('level');
+const { encryptJson, decryptJson } = require('./cryptoAtRest');
 
-const db = new Level(path.join(__dirname, '../_data/leveldb'), { valueEncoding: 'json' });
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
-module.exports = {
-  async put(key, value) { return db.put(key, value); },
-  async get(key) { return db.get(key); },
-  async del(key) { return db.del(key); },
-  createReadStream(options) { return db.createReadStream(options); }
-};
+const db = new Level(path.join(__dirname, '../_data/leveldb'), { valueEncoding: 'utf8' });
+
+function isNotFound(err) {
+  return err && (err.code === 'LEVEL_NOT_FOUND' || err.notFound === true);
+}
+
+async function put(key, value) {
+  const enc = encryptJson(value);
+  return db.put(key, enc);
+}
+
+async function get(key) {
+  const enc = await db.get(key);
+  if (enc === undefined) return undefined;
+  return decryptJson(enc);
+}
+
+async function del(key) {
+  return db.del(key);
+}
+
+function createReadStream(options = {}) {
+  const src = db.createReadStream({ ...options, valueEncoding: 'utf8' });
+  const dec = new Transform({
+    objectMode: true,
+    transform(chunk, _enc, cb) {
+      try {
+        const next = { ...chunk, value: decryptJson(chunk.value) };
+        cb(null, next);
+      } catch (e) {
+        cb(e);
+      }
+    },
+  });
+  return src.pipe(dec);
+}
+
+module.exports = { put, get, del, createReadStream, isNotFound };

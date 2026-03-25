@@ -1,9 +1,15 @@
 const db = require('../../db');
 
-/** Level/abstract-level: missing key → undefined (no throw). */
+/** missing key → null (Level은 없으면 NotFoundError). */
 async function getKey(key) {
-  const v = await db.get(key);
-  return v === undefined ? null : v;
+  try {
+    const v = await db.get(key);
+    return v === undefined ? null : v;
+  } catch (e) {
+    if (db.isNotFound && db.isNotFound(e)) return null;
+    if (e && (e.code === 'LEVEL_NOT_FOUND' || e.notFound === true)) return null;
+    throw e;
+  }
 }
 
 module.exports = { getKey };
