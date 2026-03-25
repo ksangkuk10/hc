@@ -1,18 +1,19 @@
 import { escapeHtml } from '../../utils/html.js';
 
-function consultTypeLabel(type) {
-  if (type === 'ai') return 'AI 상담';
-  if (type === 'text') return '텍스트 상담';
-  if (type === 'voice') return '음성 상담';
-  if (type === 'video') return '화상 상담';
+function consultTypeLabel(type, t) {
+  if (type === 'ai') return t('consult.aiTitle');
+  if (type === 'text') return t('consult.optText');
+  if (type === 'voice') return t('consult.optVoice');
+  if (type === 'video') return t('consult.optVideo');
   return String(type || '');
 }
 
 export function createConsultPage(ctx) {
-  const { render, api, loadConsult } = ctx;
+  const { render, api, loadConsult, t, getDateLocale } = ctx;
+  const dl = getDateLocale();
 
   return {
-    title: '상담',
+    title: 'Consult',
     render() {
       if (!window._hcConsult) window._hcConsult = { list: null, loading: true, aiBusy: false };
       const st = window._hcConsult;
@@ -22,7 +23,7 @@ export function createConsultPage(ctx) {
           st.loading = false;
           render();
         });
-        return "<div class='card'><i class='fa fa-spinner fa-spin'></i> 불러오는 중...</div>";
+        return `<div class='card'><i class='fa fa-spinner fa-spin'></i> ${escapeHtml(t('common.loading'))}</div>`;
       }
 
       window.submitAiConsult = function () {
@@ -31,11 +32,11 @@ export function createConsultPage(ctx) {
         const symptoms = raw != null ? String(raw) : '';
         const trimmed = symptoms.trim();
         if (!trimmed) {
-          alert('증상을 입력해 주세요.');
+          alert(t('consult.emptySymptom'));
           return;
         }
         if (trimmed.length < 5) {
-          alert('증상을 5자 이상 입력해 주세요.');
+          alert(t('consult.shortSymptom'));
           return;
         }
         st.aiBusy = true;
@@ -54,7 +55,7 @@ export function createConsultPage(ctx) {
           })
           .catch((e) => {
             st.aiBusy = false;
-            alert(e.message || 'AI 상담 요청 실패');
+            alert(e.message || t('consult.failAi'));
             render();
           });
       };
@@ -71,56 +72,58 @@ export function createConsultPage(ctx) {
             render();
           })
           .catch((e) => {
-            alert(e.message || '접수 실패');
+            alert(e.message || t('consult.failExpert'));
           });
       };
 
       const list = st.list || [];
 
       return (
-        '<h2><i class="fa fa-comments"></i> 상담</h2>' +
-        '<p class="muted small">응급 상황은 119 또는 가까운 응급실로 연락하세요. AI 답변은 참고용이며 진단·처방을 대체하지 않습니다.</p>' +
+        `<h2><i class="fa fa-comments"></i> ${escapeHtml(t('consult.title'))}</h2>` +
+        `<p class="muted small">${escapeHtml(t('consult.disclaimer'))}</p>` +
         '<div class="consult-page">' +
         '<div class="consult-forms-row">' +
         '<div class="card consult-ai">' +
-        "<div class='section-label'>AI 상담</div>" +
-        '<p class="muted small" style="margin-top:0">현재 증상을 입력하면 GPT-4.1 기반 모델이 감별에 참고할 수 있는 질환 방향과 일반적인 치료·관찰 포인트를 안내합니다.</p>' +
-        '<label for="ai-symptoms">증상</label>' +
-        '<textarea id="ai-symptoms" class="wide" rows="6" placeholder="예: 이틀째 미열과 인후통, 기침이 있고 앞으로 숙이면 머리가 아파요."></textarea>' +
+        `<div class='section-label'>${escapeHtml(t('consult.aiTitle'))}</div>` +
+        `<p class="muted small" style="margin-top:0">${escapeHtml(t('consult.aiHint'))}</p>` +
+        `<label for="ai-symptoms">${escapeHtml(t('consult.symptom'))}</label>` +
+        `<textarea id="ai-symptoms" class="wide" rows="6" placeholder="${escapeHtml(t('consult.symptomPlaceholder'))}"></textarea>` +
         `<button type="button" class="btn-primary" style="margin-top:8px" onclick="submitAiConsult()" ${st.aiBusy ? 'disabled' : ''}>` +
-        (st.aiBusy ? '<i class="fa fa-spinner fa-spin"></i> 분석 중…' : '<i class="fa fa-robot"></i> AI에게 물어보기') +
+        (st.aiBusy
+          ? `<i class="fa fa-spinner fa-spin"></i> ${escapeHtml(t('consult.aiBusy'))}`
+          : `<i class="fa fa-robot"></i> ${escapeHtml(t('consult.aiAsk'))}`) +
         '</button>' +
         '</div>' +
         '<div class="card consult-expert">' +
-        "<div class='section-label'>전문가 상담</div>" +
-        '<p class="muted small" style="margin-top:0">전문가 연결·예약 접수(데모)입니다.</p>' +
-        '<label for="consult-type">상담 유형</label>' +
+        `<div class='section-label'>${escapeHtml(t('consult.expertTitle'))}</div>` +
+        `<p class="muted small" style="margin-top:0">${escapeHtml(t('consult.expertHint'))}</p>` +
+        `<label for="consult-type">${escapeHtml(t('consult.type'))}</label>` +
         '<select id="consult-type">' +
-        '<option value="text">텍스트 상담</option>' +
-        '<option value="voice">음성 상담 (예약)</option>' +
-        '<option value="video">화상 상담 (예약)</option>' +
+        `<option value="text">${escapeHtml(t('consult.optText'))}</option>` +
+        `<option value="voice">${escapeHtml(t('consult.optVoice'))}</option>` +
+        `<option value="video">${escapeHtml(t('consult.optVideo'))}</option>` +
         '</select>' +
         '<div class="consult-expert-query">' +
-        '<label for="consult-msg">증상·질문</label>' +
-        '<textarea id="consult-msg" class="wide" rows="5" placeholder="증상·질문을 구체적으로 적어 주세요."></textarea>' +
-        '<button type="button" class="btn-primary btn-consult-expert-submit" onclick="submitConsult()">접수</button>' +
+        `<label for="consult-msg">${escapeHtml(t('consult.symptomQ'))}</label>` +
+        `<textarea id="consult-msg" class="wide" rows="5" placeholder="${escapeHtml(t('consult.msgPlaceholder'))}"></textarea>` +
+        `<button type="button" class="btn-primary btn-consult-expert-submit" onclick="submitConsult()">${escapeHtml(t('consult.submit'))}</button>` +
         '</div>' +
         '</div>' +
         '</div>' +
         '<div class="card consult-log-block">' +
-        "<div class='section-label'>상담 로그</div>" +
+        `<div class='section-label'>${escapeHtml(t('consult.log'))}</div>` +
         (list.length
           ? `<ul class="hist-list">${list
               .map((x) => {
-                const when = new Date(x.createdAt).toLocaleString('ko-KR');
+                const when = new Date(x.createdAt).toLocaleString(dl);
                 const isAi = x.type === 'ai';
                 const tagClass = isAi ? 'ai' : 'expert';
-                const tagText = isAi ? 'AI' : '전문가';
+                const tagText = isAi ? t('consult.tagAi') : t('consult.tagExpert');
                 return (
                   `<li>` +
                   `<div class="muted small" style="margin-bottom:6px">` +
-                  `<span class="consult-type-tag ${tagClass}">${tagText}</span>` +
-                  `<strong>${escapeHtml(when)}</strong> · ${escapeHtml(consultTypeLabel(x.type))}` +
+                  `<span class="consult-type-tag ${tagClass}">${escapeHtml(tagText)}</span>` +
+                  `<strong>${escapeHtml(when)}</strong> · ${escapeHtml(consultTypeLabel(x.type, t))}` +
                   (x.status ? ` · <span class="muted">${escapeHtml(x.status)}</span>` : '') +
                   `</div>` +
                   `<div style="margin-top:4px">${escapeHtml(x.message)}</div>` +
@@ -131,7 +134,7 @@ export function createConsultPage(ctx) {
                 );
               })
               .join('')}</ul>`
-          : '<p class="muted">상담 기록이 없습니다.</p>') +
+          : `<p class="muted">${escapeHtml(t('consult.emptyLog'))}</p>`) +
         '</div>' +
         '</div>'
       );

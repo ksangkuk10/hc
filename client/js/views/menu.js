@@ -1,10 +1,15 @@
-export const menuItems = [
-  { key: 'dashboard', label: '대시보드', icon: 'fa-solid fa-chart-pie' },
-  { key: 'health', label: '건강 데이터 기록', icon: 'fa-solid fa-heart-pulse' },
-  { key: 'condition', label: '컨디션 분석', icon: 'fa-solid fa-face-smile-beam' },
-  { key: 'food', label: '음식 & 식단 분석', icon: 'fa-solid fa-bowl-food' },
-  { key: 'guide', label: '건강 가이드', icon: 'fa-solid fa-book-open' },
-  { key: 'consult', label: '상담', icon: 'fa-solid fa-comments' },
-  { key: 'contact', label: '연락처', icon: 'fa-solid fa-address-book' },
-  { key: 'settings', label: '설정', icon: 'fa-solid fa-gear' },
-];
+/**
+ * @param {(key: string, vars?: Record<string, string>) => string} t
+ */
+export function getMenuItems(t) {
+  return [
+    { key: 'dashboard', label: t('menu.dashboard'), icon: 'fa-solid fa-chart-pie' },
+    { key: 'health', label: t('menu.health'), icon: 'fa-solid fa-heart-pulse' },
+    { key: 'condition', label: t('menu.condition'), icon: 'fa-solid fa-face-smile-beam' },
+    { key: 'food', label: t('menu.food'), icon: 'fa-solid fa-bowl-food' },
+    { key: 'consult', label: t('menu.consult'), icon: 'fa-solid fa-comments' },
+    { key: 'guide', label: t('menu.guide'), icon: 'fa-solid fa-book-open' },
+    { key: 'contact', label: t('menu.contact'), icon: 'fa-solid fa-address-book' },
+    { key: 'settings', label: t('menu.settings'), icon: 'fa-solid fa-gear' },
+  ];
+}

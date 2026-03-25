@@ -2,18 +2,18 @@ import { escapeHtml } from '../../utils/html.js';
 import { fileToBase64 } from '../../utils/file.js';
 import { compressFoodImageToMaxBytes } from '../../utils/imageCompress.js';
 
-function attachFoodCameraHandlers(st, render, apiClient, loadFood) {
+function attachFoodCameraHandlers(st, render, apiClient, loadFood, t) {
   window.startFoodCamera = async function () {
     const video = document.getElementById('food-video');
     const panel = document.getElementById('food-camera-panel');
     const hint = document.getElementById('food-camera-hint');
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      alert('이 브라우저에서는 카메라 API를 사용할 수 없습니다.');
+      alert(t('food.cameraNoApi'));
       return;
     }
     try {
       if (st._stream) {
-        st._stream.getTracks().forEach((t) => t.stop());
+        st._stream.getTracks().forEach((tr) => tr.stop());
         st._stream = null;
       }
       let stream;
@@ -46,9 +46,9 @@ function attachFoodCameraHandlers(st, render, apiClient, loadFood) {
         prev.style.display = 'none';
         prev.removeAttribute('src');
       }
-      if (hint) hint.textContent = '음식이 프레임에 들어오면 「촬영」을 누르세요.';
+      if (hint) hint.textContent = t('food.hintFoodFrame');
     } catch {
-      alert('카메라를 켤 수 없습니다. 권한을 허용했는지 확인해 주세요.');
+      alert(t('food.cameraFail'));
     }
   };
 
@@ -58,13 +58,13 @@ function attachFoodCameraHandlers(st, render, apiClient, loadFood) {
     const prev = document.getElementById('food-capture-preview');
     const hint = document.getElementById('food-camera-hint');
     if (!video || !video.srcObject || !canvas) {
-      alert('먼저 「카메라 켜기」를 눌러 주세요.');
+      alert(t('condition.camFirst'));
       return;
     }
     const w = video.videoWidth;
     const h = video.videoHeight;
     if (!w || !h) {
-      alert('영상이 준비될 때까지 잠시 후 다시 눌러 주세요.');
+      alert(t('condition.videoWait'));
       return;
     }
     canvas.width = w;
@@ -79,7 +79,7 @@ function attachFoodCameraHandlers(st, render, apiClient, loadFood) {
       prev.style.display = 'block';
     }
     if (hint) {
-      hint.textContent = '촬영이 저장되었습니다. 「분석 및 기록」을 누르면 이 사진으로 AI 분석합니다.';
+      hint.textContent = t('food.hintCaptured');
     }
   };
 
@@ -87,7 +87,7 @@ function attachFoodCameraHandlers(st, render, apiClient, loadFood) {
     const video = document.getElementById('food-video');
     const panel = document.getElementById('food-camera-panel');
     if (st._stream) {
-      st._stream.getTracks().forEach((t) => t.stop());
+      st._stream.getTracks().forEach((tr) => tr.stop());
       st._stream = null;
     }
     if (video) video.srcObject = null;
@@ -109,8 +109,8 @@ function attachFoodCameraHandlers(st, render, apiClient, loadFood) {
     const useCamera = st.cameraB64;
     let imageMime = 'image/jpeg';
     if (!useCamera && fileEl && fileEl.files && fileEl.files[0]) {
-      const t = fileEl.files[0].type;
-      if (t && /^image\//.test(t)) imageMime = t;
+      const ty = fileEl.files[0].type;
+      if (ty && /^image\//.test(ty)) imageMime = ty;
     }
     const p = useCamera
       ? Promise.resolve(st.cameraB64)
@@ -135,7 +135,7 @@ function attachFoodCameraHandlers(st, render, apiClient, loadFood) {
         st.analyzing = false;
         st.cameraB64 = null;
         if (st._stream) {
-          st._stream.getTracks().forEach((t) => t.stop());
+          st._stream.getTracks().forEach((tr) => tr.stop());
           st._stream = null;
         }
         const video = document.getElementById('food-video');
@@ -153,16 +153,17 @@ function attachFoodCameraHandlers(st, render, apiClient, loadFood) {
       .catch((e) => {
         st.analyzing = false;
         render();
-        alert(e.message || '분석 실패');
+        alert(e.message || t('food.fail'));
       });
   };
 }
 
 export function createFoodPage(ctx) {
-  const { render, api: apiClient, loadFood } = ctx;
+  const { render, api: apiClient, loadFood, t, getDateLocale } = ctx;
+  const dl = getDateLocale();
 
   return {
-    title: '음식 & 식단 분석',
+    title: 'Food',
     render() {
       if (!window._hcFood) {
         window._hcFood = {
@@ -181,22 +182,22 @@ export function createFoodPage(ctx) {
           st.loading = false;
           render();
         });
-        return "<div class='card'><i class='fa fa-spinner fa-spin'></i> 불러오는 중...</div>";
+        return `<div class='card'><i class='fa fa-spinner fa-spin'></i> ${escapeHtml(t('common.loading'))}</div>`;
       }
       if (typeof st.cameraB64 === 'undefined') st.cameraB64 = null;
-      attachFoodCameraHandlers(st, render, apiClient, loadFood);
+      attachFoodCameraHandlers(st, render, apiClient, loadFood, t);
 
       const hist = st.list || [];
       return (
-        '<h2><i class="fa fa-bowl-food"></i> 음식 & 식단 분석</h2>' +
-        '<p class="muted small">사진이 있으면 서버가 <strong>GitHub Models</strong>(<code>openai/gpt-4.1</code>)으로 음식을 추정·영양을 참고 추정합니다. 토큰 없거나 실패 시 해시 기반 데모값입니다. 이력에 저장되는 사진은 <strong>약 500KB 이하</strong>로 압축합니다. 의료 진단이 아닙니다.</p>' +
+        `<h2><i class="fa fa-bowl-food"></i> ${escapeHtml(t('food.title'))}</h2>` +
+        `<p class="muted small">${escapeHtml(t('food.intro'))}</p>` +
         '<div class="card">' +
-        "<div class='section-label'><i class='fa fa-camera'></i> 웹캠으로 음식 촬영</div>" +
-        '<p class="muted small">후면 카메라를 우선 시도합니다(없으면 전면).</p>' +
+        `<div class='section-label'><i class='fa fa-camera'></i> ${escapeHtml(t('food.webcam'))}</div>` +
+        `<p class="muted small">${escapeHtml(t('food.webcamHint'))}</p>` +
         '<div class="food-camera-actions">' +
-        '<button type="button" class="btn-primary" onclick="startFoodCamera()">카메라 켜기</button>' +
-        '<button type="button" class="btn-secondary" onclick="snapFoodCamera()">촬영</button>' +
-        '<button type="button" class="btn-secondary" onclick="stopFoodCamera()">카메라 끄기</button>' +
+        `<button type="button" class="btn-primary" onclick="startFoodCamera()">${escapeHtml(t('condition.camOn'))}</button>` +
+        `<button type="button" class="btn-secondary" onclick="snapFoodCamera()">${escapeHtml(t('condition.snap'))}</button>` +
+        `<button type="button" class="btn-secondary" onclick="stopFoodCamera()">${escapeHtml(t('condition.camOff'))}</button>` +
         '</div>' +
         '<div id="food-camera-panel" style="display:none;margin-top:8px">' +
         '<video id="food-video" autoplay playsinline muted style="width:100%;max-width:480px;border-radius:12px;background:#ece8e4;display:block"></video>' +
@@ -206,49 +207,50 @@ export function createFoodPage(ctx) {
         '</div>' +
         '</div>' +
         '<div class="card">' +
-        "<div class='section-label'>음식명 입력</div>" +
-        '<input id="food-label" class="wide" placeholder="예: 김치찌개, 샐러드 (AI 힌트로 사용 가능)" />' +
+        `<div class='section-label'>${escapeHtml(t('food.labelTitle'))}</div>` +
+        `<input id="food-label" class="wide" placeholder="${escapeHtml(t('food.labelPh'))}" />` +
         '</div>' +
         '<div class="card">' +
-        "<div class='section-label'>갤러리에서 선택</div>" +
+        `<div class='section-label'>${escapeHtml(t('food.gallery'))}</div>` +
         '<input type="file" id="food-file" accept="image/*" />' +
-        '<p class="muted small">웹캠 촬영이 있으면 그것이 우선합니다.</p>' +
+        `<p class="muted small">${escapeHtml(t('food.galleryHint'))}</p>` +
         `<button type="button" class="btn-primary" onclick="runFoodAnalyze()" ${st.analyzing ? 'disabled' : ''}>` +
-        (st.analyzing ? '<i class="fa fa-spinner fa-spin"></i> 분석 중…' : '분석 및 기록') +
+        (st.analyzing ? `<i class="fa fa-spinner fa-spin"></i> ${escapeHtml(t('food.analyzing'))}` : escapeHtml(t('food.analyzeBtn'))) +
         '</button>' +
         '</div>' +
         (st.analyzing
-          ? '<div class="card cond-analyzing-banner"><p style="margin:0"><i class="fa fa-circle-notch fa-spin"></i> <strong>분석 중입니다.</strong> 잠시만 기다려 주세요.</p></div>'
+          ? `<div class="card cond-analyzing-banner"><p style="margin:0"><i class="fa fa-circle-notch fa-spin"></i> <strong>${escapeHtml(t('condition.analyzingBanner'))}</strong></p></div>`
           : '') +
         '<div class="card">' +
-        "<div class='section-label'>식단 이력</div>" +
+        `<div class='section-label'>${escapeHtml(t('food.history'))}</div>` +
         (hist.length
           ? `<ul class="hist-list">${hist
               .map((x) => {
                 const tag =
                   x.source === 'github_models'
-                    ? '<span style="background:#ebe6e1;color:#4a4540;padding:2px 8px;border-radius:6px;font-size:0.82rem;margin-left:6px">GitHub Models' +
+                    ? '<span style="background:#ebe6e1;color:#4a4540;padding:2px 8px;border-radius:6px;font-size:0.82rem;margin-left:6px">' +
+                      escapeHtml(t('food.githubTag')) +
                       (x.aiModel ? ' · ' + escapeHtml(x.aiModel) : '') +
                       '</span>'
-                    : '<span style="opacity:0.85;font-size:0.82rem;margin-left:6px">(데모)</span>';
+                    : `<span style="opacity:0.85;font-size:0.82rem;margin-left:6px">${escapeHtml(t('food.demoTag'))}</span>`;
                 const when = x.at
-                  ? new Date(x.at).toLocaleString('ko-KR', {
+                  ? new Date(x.at).toLocaleString(dl, {
                       dateStyle: 'medium',
                       timeStyle: 'short',
                     })
-                  : '—';
+                  : t('common.none');
                 const mime = x.imageMime && /^image\//.test(x.imageMime) ? x.imageMime : 'image/jpeg';
                 const thumb =
                   x.imageBase64 && String(x.imageBase64).length > 0
                     ? `<div style="margin:10px 0"><img src="data:${mime};base64,${String(x.imageBase64).replace(/"/g, '')}" alt="" style="max-width:240px;max-height:240px;border-radius:12px;object-fit:cover;border:1px solid #e8e2dc;box-shadow:0 2px 12px rgba(28,24,22,0.08)"/></div>`
-                    : '<p class="muted small" style="margin:8px 0 0">저장된 사진 없음 (텍스트만 분석 또는 이미지 용량 한도 초과)</p>';
+                    : `<p class="muted small" style="margin:8px 0 0">${escapeHtml(t('food.noThumb'))}</p>`;
                 const n = x.nutrition || {};
                 return (
                   `<li style="padding-bottom:16px">` +
-                  `<div class="muted small" style="margin-bottom:8px"><i class="fa fa-calendar"></i> 기록일시: <strong style="color:#9a7b7b">${escapeHtml(when)}</strong></div>` +
+                  `<div class="muted small" style="margin-bottom:8px"><i class="fa fa-calendar"></i> ${escapeHtml(t('food.recorded'))} <strong style="color:#9a7b7b">${escapeHtml(when)}</strong></div>` +
                   thumb +
                   `<strong>${escapeHtml(x.label)}</strong>${tag}<br/>` +
-                  `${n.kcal != null ? n.kcal : '—'}kcal · 단백질 ${n.proteinG != null ? n.proteinG : '—'}g · 나트륨 약 ${n.sodiumMg != null ? n.sodiumMg : '—'}mg<br/>` +
+                  `${n.kcal != null ? n.kcal : '—'}kcal · ${escapeHtml(t('food.proteinShort'))} ${n.proteinG != null ? n.proteinG : '—'}g · ${escapeHtml(t('food.sodiumShort'))} ${n.sodiumMg != null ? n.sodiumMg : '—'}mg<br/>` +
                   `<span class="muted">${escapeHtml(x.advice || '')}</span>` +
                   (x.note
                     ? `<div class="muted small" style="margin-top:6px;white-space:pre-wrap">${escapeHtml(x.note)}</div>`
@@ -257,7 +259,7 @@ export function createFoodPage(ctx) {
                 );
               })
               .join('')}</ul>`
-          : '<p class="muted">기록이 없습니다.</p>') +
+          : `<p class="muted">${escapeHtml(t('food.noHistory'))}</p>`) +
         '</div>'
       );
     },

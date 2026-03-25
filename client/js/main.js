@@ -4,9 +4,56 @@ import { getDate } from './utils/date.js';
 import { escapeHtml } from './utils/html.js';
 import { chartBars } from './utils/chart.js';
 import { fileToBase64 } from './utils/file.js';
-import { menuItems } from './views/menu.js';
+import { getMenuItems } from './views/menu.js';
 import { createRoutes } from './views/routes/index.js';
 import { LAST_LOGIN_EMAIL_KEY } from './config.js';
+import {
+  initLocale,
+  applyDocumentLang,
+  t,
+  setLocale,
+  getLocale,
+  getDateLocale,
+  SUPPORTED_LOCALES,
+} from './i18n/core.js';
+
+initLocale();
+applyDocumentLang();
+if (typeof document !== 'undefined') {
+  document.title = t('app.documentTitle');
+}
+
+const LANG_OPTIONS = [
+  ['en', 'English'],
+  ['ko', '한국어'],
+  ['ja', '日本語'],
+  ['zh', '中文'],
+  ['fr', 'Français'],
+  ['de', 'Deutsch'],
+  ['es', 'Español'],
+];
+
+function langSelectHtml(selectId) {
+  const cur = getLocale();
+  const idAttr = selectId ? ` id="${escapeHtml(selectId)}"` : '';
+  return (
+    '<label class="sr-only" for="' +
+    escapeHtml(selectId || 'app-lang') +
+    '">' +
+    escapeHtml(t('lang.label')) +
+    '</label>' +
+    '<select' +
+    idAttr +
+    ' class="header-lang-select" onchange="setAppLanguage(this.value)" aria-label="' +
+    escapeHtml(t('lang.label')) +
+    '">' +
+    LANG_OPTIONS.map(
+      ([code, label]) =>
+        `<option value="${escapeHtml(code)}"${cur === code ? ' selected' : ''}>${escapeHtml(label)}</option>`,
+    ).join('') +
+    '</select>'
+  );
+}
 
 function getLastLoginEmail() {
   try {
@@ -61,11 +108,16 @@ function updateHeaderProfile() {
   api('/api/auth/me')
     .then((me) => {
       el.innerHTML =
-        `<span class="hp-name">${escapeHtml(me.name || '')}</span> ` +
-        `<button type="button" class="hp-btn" onclick="location.hash='settings'" title="설정"><i class="fa fa-user-circle"></i></button>`;
+        '<span class="header-profile-main">' +
+        `<span class="hp-name">${escapeHtml(me.name || me.email || '')}</span>` +
+        `<button type="button" class="hp-btn" onclick="location.hash='settings'" title="${escapeHtml(t('nav.settingsTitle'))}"><i class="fa fa-user-circle"></i></button>` +
+        '</span>' +
+        '<span class="header-lang-wrap">' +
+        langSelectHtml('header-lang') +
+        '</span>';
     })
     .catch(() => {
-      el.innerHTML = '';
+      el.innerHTML = '<span class="header-lang-wrap">' + langSelectHtml('header-lang') + '</span>';
     });
 }
 
@@ -74,18 +126,20 @@ function updateNav(selected) {
     document.getElementById('nav').innerHTML = '';
     return;
   }
+  const items = getMenuItems(t);
   document.getElementById('nav').innerHTML =
-    menuItems
+    items
       .map(
         (m) =>
-          `<button type="button" onclick="route('${m.key}')" class="${selected === m.key ? 'active' : ''}"><i class="${m.icon}"></i> ${m.label}</button>`,
+          `<button type="button" onclick="route('${m.key}')" class="${selected === m.key ? 'active' : ''}"><i class="${m.icon}"></i> ${escapeHtml(m.label)}</button>`,
       )
       .join('') +
-    '<button type="button" onclick="logout()" class="nav-logout"><i class="fa-solid fa-sign-out-alt"></i> 로그아웃</button>';
+    `<button type="button" onclick="logout()" class="nav-logout"><i class="fa-solid fa-sign-out-alt"></i> ${escapeHtml(t('nav.logout'))}</button>`;
 }
 
 function render() {
   const hash = window.location.hash.replace('#', '') || 'dashboard';
+  document.title = t('app.documentTitle');
   if (!isLogin) {
     renderLogin();
     document.getElementById('main').innerHTML = '';
@@ -105,28 +159,55 @@ function renderLogin() {
   modal.style.display = 'flex';
   modal.innerHTML =
     '<div class="login-card">' +
-    '<h2 style="color:#1a1a1a;letter-spacing:0.08em;font-weight:700;text-transform:uppercase">HealthCare</h2>' +
-    '<p class="muted small" style="margin-bottom:16px">건강 기록·컨디션·식단·상담을 한곳에서 (데모)</p>' +
+    '<div class="login-lang-row">' +
+    langSelectHtml('login-lang') +
+    '</div>' +
+    '<h2 style="color:#1a1a1a;letter-spacing:0.08em;font-weight:700;text-transform:uppercase">' +
+    escapeHtml(t('app.title')) +
+    '</h2>' +
+    '<p class="muted small" style="margin-bottom:16px">' +
+    escapeHtml(t('login.tagline')) +
+    '</p>' +
     '<div class="login-tabs">' +
-    '<button type="button" id="tab-login" class="active" onclick="showLoginTab(\'login\')">로그인</button>' +
-    '<button type="button" id="tab-register" onclick="showLoginTab(\'register\')">회원가입</button>' +
+    '<button type="button" id="tab-login" class="active" onclick="showLoginTab(\'login\')">' +
+    escapeHtml(t('login.tabLogin')) +
+    '</button>' +
+    '<button type="button" id="tab-register" onclick="showLoginTab(\'register\')">' +
+    escapeHtml(t('login.tabRegister')) +
+    '</button>' +
     '</div>' +
     '<div id="panel-login">' +
-    '<input id="uid" type="email" placeholder="이메일" autocomplete="username" value="' +
+    '<input id="uid" type="email" placeholder="' +
+    escapeHtml(t('login.email')) +
+    '" autocomplete="username" value="' +
     lastEmail +
     '"/>' +
-    '<input id="pw" type="password" placeholder="비밀번호" autocomplete="current-password"/>' +
-    '<button type="button" onclick="login()">로그인</button>' +
+    '<input id="pw" type="password" placeholder="' +
+    escapeHtml(t('login.password')) +
+    '" autocomplete="current-password"/>' +
+    '<button type="button" onclick="login()">' +
+    escapeHtml(t('login.signIn')) +
+    '</button>' +
     '</div>' +
     '<div id="panel-register" style="display:none">' +
-    '<input id="reg-email" type="email" placeholder="이메일" value="' +
+    '<input id="reg-email" type="email" placeholder="' +
+    escapeHtml(t('login.email')) +
+    '" value="' +
     lastEmail +
     '"/>' +
-    '<input id="reg-name" placeholder="이름"/>' +
-    '<input id="reg-pw" type="password" placeholder="비밀번호 (4자 이상)"/>' +
-    '<button type="button" onclick="register()">가입하고 시작</button>' +
+    '<input id="reg-name" placeholder="' +
+    escapeHtml(t('login.name')) +
+    '"/>' +
+    '<input id="reg-pw" type="password" placeholder="' +
+    escapeHtml(t('login.passwordHint')) +
+    '"/>' +
+    '<button type="button" onclick="register()">' +
+    escapeHtml(t('login.registerCta')) +
+    '</button>' +
     '</div>' +
-    '<div class="muted small" style="margin-top:14px">의료 데이터는 보안·법규 준수 하에 다뤄야 합니다. 본 데모는 로컬 저장입니다.</div>' +
+    '<div class="muted small" style="margin-top:14px">' +
+    escapeHtml(t('login.footer')) +
+    '</div>' +
     '</div>';
 }
 
@@ -165,6 +246,8 @@ const ctx = {
   chartBars,
   fileToBase64,
   updateHeaderProfile,
+  t,
+  getDateLocale,
   ...services,
 };
 
@@ -172,6 +255,14 @@ routes = createRoutes(ctx);
 
 window.route = function (page) {
   window.location.hash = page;
+  render();
+};
+
+window.setAppLanguage = function (code) {
+  if (!SUPPORTED_LOCALES.includes(code)) return;
+  setLocale(code);
+  applyDocumentLang();
+  document.title = t('app.documentTitle');
   render();
 };
 
@@ -190,7 +281,7 @@ window.login = function () {
       render();
     })
     .catch((e) => {
-      alert(e.message || '로그인 실패');
+      alert(e.message || t('login.fail'));
     });
 };
 
@@ -213,7 +304,7 @@ window.register = function () {
       render();
     })
     .catch((e) => {
-      alert(e.message || '가입 실패');
+      alert(e.message || t('login.registerFail'));
     });
 };
 

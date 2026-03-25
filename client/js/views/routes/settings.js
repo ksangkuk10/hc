@@ -9,10 +9,11 @@ export function createSettingsPage(ctx) {
     loadReminders,
     saveGoals,
     saveReminders,
+    t,
   } = ctx;
 
   return {
-    title: '설정',
+    title: 'Settings',
     render() {
       if (!window._hcSet) window._hcSet = { settings: null, loading: true };
       const st = window._hcSet;
@@ -30,7 +31,7 @@ export function createSettingsPage(ctx) {
             st.loading = false;
             render();
           });
-        return "<div class='card'><i class='fa fa-spinner fa-spin'></i> 불러오는 중...</div>";
+        return `<div class='card'><i class='fa fa-spinner fa-spin'></i> ${escapeHtml(t('common.loading'))}</div>`;
       }
       const s = st.settings || {};
       window.saveProfile = function () {
@@ -44,14 +45,14 @@ export function createSettingsPage(ctx) {
         }
         api('/api/profile', { method: 'PUT', body: JSON.stringify(body) })
           .then(() => {
-            alert('저장되었습니다.');
+            alert(t('settings.profileSaved'));
             document.getElementById('prof-pw').value = '';
             document.getElementById('prof-cur').value = '';
             ctx.updateHeaderProfile();
             render();
           })
           .catch((e) => {
-            alert(e.message || '저장 실패');
+            alert(e.message || t('common.saveFail'));
           });
       };
       window.saveHcSettings = function () {
@@ -63,7 +64,7 @@ export function createSettingsPage(ctx) {
         };
         api('/api/settings', { method: 'PUT', body: JSON.stringify({ settings }) }).then(() => {
           st.settings = settings;
-          alert('설정이 저장되었습니다.');
+          alert(t('settings.appSettingsSaved'));
         });
       };
       window.saveGoalsRem = function () {
@@ -73,12 +74,12 @@ export function createSettingsPage(ctx) {
           return { ...g, progress: prog };
         });
         const reminders = (st.reminders || []).map((r, i) => {
-          const t = document.getElementById(`rem-t-${i}`);
+          const tm = document.getElementById(`rem-t-${i}`);
           const x = document.getElementById(`rem-x-${i}`);
           const e = document.getElementById(`rem-e-${i}`);
           return {
             id: r.id,
-            time: t ? t.value : r.time,
+            time: tm ? tm.value : r.time,
             text: x ? x.value : r.text,
             enabled: e ? e.checked : r.enabled,
           };
@@ -88,19 +89,19 @@ export function createSettingsPage(ctx) {
             st.goals = goals;
             st.reminders = reminders;
             window._hcDash = { loading: true };
-            alert('목표·리마인더가 저장되었습니다.');
+            alert(t('settings.goalsRemSaved'));
             render();
           })
           .catch((e) => {
-            alert(e.message || '저장 실패');
+            alert(e.message || t('common.saveFail'));
           });
       };
       const me = st.me || {};
       const goalsRows = (st.goals || [])
         .map((g, i) => {
           return (
-            `<div class="goal-edit"><strong>${escapeHtml(g.title)}</strong> · 목표 ${escapeHtml(String(g.target))}${escapeHtml(g.unit || '')}` +
-            `<label>진행값</label><input type="number" id="goal-p-${i}" min="0" step="0.1" value="${escapeHtml(String(g.progress != null ? g.progress : 0))}"/></div>`
+            `<div class="goal-edit"><strong>${escapeHtml(g.title)}</strong> · ${escapeHtml(t('settings.targetWord'))} ${escapeHtml(String(g.target))}${escapeHtml(g.unit || '')}` +
+            `<label>${escapeHtml(t('settings.progressLabel'))}</label><input type="number" id="goal-p-${i}" min="0" step="0.1" value="${escapeHtml(String(g.progress != null ? g.progress : 0))}"/></div>`
           );
         })
         .join('');
@@ -108,40 +109,38 @@ export function createSettingsPage(ctx) {
         .map((r, i) => {
           return (
             `<div class="goal-edit" style="margin-bottom:16px">` +
-            `<label>시간</label><input type="time" id="rem-t-${i}" value="${escapeHtml(r.time || '09:00')}"/>` +
-            `<label>내용</label><input class="wide" id="rem-x-${i}" value="${escapeHtml(r.text || '')}"/>` +
-            `<label><input type="checkbox" id="rem-e-${i}" ${r.enabled ? 'checked' : ''}/> 사용</label></div>`
+            `<label>${escapeHtml(t('settings.time'))}</label><input type="time" id="rem-t-${i}" value="${escapeHtml(r.time || '09:00')}"/>` +
+            `<label>${escapeHtml(t('settings.content'))}</label><input class="wide" id="rem-x-${i}" value="${escapeHtml(r.text || '')}"/>` +
+            `<label><input type="checkbox" id="rem-e-${i}" ${r.enabled ? 'checked' : ''}/> ${escapeHtml(t('settings.enabled'))}</label></div>`
           );
         })
         .join('');
       return (
-        '<h2><i class="fa fa-gear"></i> 설정</h2>' +
+        `<h2><i class="fa fa-gear"></i> ${escapeHtml(t('settings.title'))}</h2>` +
         '<div class="card">' +
-        "<div class='section-label'>프로필</div>" +
+        `<div class='section-label'>${escapeHtml(t('settings.profile'))}</div>` +
         `<p class="muted small">${escapeHtml(me.email || '')}</p>` +
-        `<label>이름</label><input id="prof-name" class="wide" value="${escapeHtml(me.name || '')}"/>` +
-        '<label>새 비밀번호 (변경 시)</label><input id="prof-pw" type="password" class="wide" placeholder="변경하지 않으면 비워두세요"/>' +
-        '<label>현재 비밀번호 (비밀번호 변경 시 필수)</label><input id="prof-cur" type="password" class="wide"/>' +
-        '<button type="button" class="btn-primary" onclick="saveProfile()">프로필 저장</button>' +
+        `<label>${escapeHtml(t('settings.labelName'))}</label><input id="prof-name" class="wide" value="${escapeHtml(me.name || '')}"/>` +
+        `<label>${escapeHtml(t('settings.newPw'))}</label><input id="prof-pw" type="password" class="wide" placeholder="${escapeHtml(t('settings.newPwPlaceholder'))}"/>` +
+        `<label>${escapeHtml(t('settings.curPwForChange'))}</label><input id="prof-cur" type="password" class="wide"/>` +
+        `<button type="button" class="btn-primary" onclick="saveProfile()">${escapeHtml(t('settings.saveProfileBtn'))}</button>` +
         '</div>' +
         '<div class="card">' +
-        "<div class='section-label'>알림 · 연동 (데모)</div>" +
-        `<label><input type="checkbox" id="set-goals" ${s.notifyGoals !== false ? 'checked' : ''}/> 목표·피드백 알림</label><br/>` +
-        `<label><input type="checkbox" id="set-rem" ${s.notifyReminders !== false ? 'checked' : ''}/> 리마인더</label><br/>` +
-        `<label><input type="checkbox" id="set-apple" ${s.wearableApple ? 'checked' : ''}/> Apple Health 연동 (준비 중)</label><br/>` +
-        `<label><input type="checkbox" id="set-google" ${s.wearableGoogle ? 'checked' : ''}/> Google Fit 연동 (준비 중)</label><br/>` +
-        '<button type="button" class="btn-secondary" onclick="saveHcSettings()">설정 저장</button>' +
+        `<div class='section-label'>${escapeHtml(t('settings.notifyDemo'))}</div>` +
+        `<label><input type="checkbox" id="set-goals" ${s.notifyGoals !== false ? 'checked' : ''}/> ${escapeHtml(t('settings.goalNotify'))}</label><br/>` +
+        `<label><input type="checkbox" id="set-rem" ${s.notifyReminders !== false ? 'checked' : ''}/> ${escapeHtml(t('settings.remNotify'))}</label><br/>` +
+        `<label><input type="checkbox" id="set-apple" ${s.wearableApple ? 'checked' : ''}/> ${escapeHtml(t('settings.apple'))}</label><br/>` +
+        `<label><input type="checkbox" id="set-google" ${s.wearableGoogle ? 'checked' : ''}/> ${escapeHtml(t('settings.google'))}</label><br/>` +
+        `<button type="button" class="btn-secondary" onclick="saveHcSettings()">${escapeHtml(t('settings.saveSettings'))}</button>` +
         '</div>' +
         '<div class="card">' +
-        "<div class='section-label'>목표 진행률</div>" +
-        (goalsRows || '<p class="muted">목표 없음</p>') +
-        "<div class='section-label' style='margin-top:18px'>리마인더</div>" +
-        (remRows || '<p class="muted">리마인더 없음</p>') +
-        '<button type="button" class="btn-primary" onclick="saveGoalsRem()">목표·리마인더 저장</button>' +
+        `<div class='section-label'>${escapeHtml(t('settings.goalProgress'))}</div>` +
+        (goalsRows || `<p class="muted">${escapeHtml(t('settings.noGoals'))}</p>`) +
+        `<div class='section-label' style='margin-top:18px'>${escapeHtml(t('settings.remSection'))}</div>` +
+        (remRows || `<p class="muted">${escapeHtml(t('settings.noRem'))}</p>`) +
+        `<button type="button" class="btn-primary" onclick="saveGoalsRem()">${escapeHtml(t('settings.saveGoals'))}</button>` +
         '</div>' +
-        '<div class="card muted small">' +
-        '개인정보·의료 데이터는 민감정보입니다. 운영 환경에서는 SSL/TLS, 접근 통제, 암호화, HIPAA/GDPR·국내 의료법 준수가 필요합니다.' +
-        '</div>'
+        `<div class="card muted small">${escapeHtml(t('settings.legal'))}</div>`
       );
     },
   };

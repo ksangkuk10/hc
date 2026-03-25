@@ -13,7 +13,7 @@ export function createRoutes(ctx) {
     health: createHealthPage(ctx),
     condition: createConditionPage(ctx),
     food: createFoodPage(ctx),
-    guide: createGuidePage(),
+    guide: createGuidePage(ctx),
     consult: createConsultPage(ctx),
     contact: createContactPage(ctx),
     settings: createSettingsPage(ctx),

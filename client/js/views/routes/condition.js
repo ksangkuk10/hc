@@ -2,18 +2,18 @@ import { escapeHtml } from '../../utils/html.js';
 import { chartBars } from '../../utils/chart.js';
 import { fileToBase64 } from '../../utils/file.js';
 
-function attachConditionCameraHandlers(st, render, apiClient, loadCondition) {
+function attachConditionCameraHandlers(st, render, apiClient, loadCondition, t) {
   window.startConditionCamera = async function () {
     const video = document.getElementById('cond-video');
     const panel = document.getElementById('cond-camera-panel');
     const hint = document.getElementById('cond-camera-hint');
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      alert('이 브라우저에서는 카메라 API를 사용할 수 없습니다.');
+      alert(t('condition.cameraNoApi'));
       return;
     }
     try {
       if (st._stream) {
-        st._stream.getTracks().forEach((t) => t.stop());
+        st._stream.getTracks().forEach((tr) => tr.stop());
         st._stream = null;
       }
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -43,10 +43,10 @@ function attachConditionCameraHandlers(st, render, apiClient, loadCondition) {
         prev.removeAttribute('src');
       }
       if (hint) {
-        hint.textContent = '얼굴이 프레임에 들어오면 「촬영」을 누르세요.';
+        hint.textContent = t('condition.hintFaceFrame');
       }
-    } catch (e) {
-      alert('카메라를 켤 수 없습니다. 권한을 허용했는지, 다른 앱이 카메라를 쓰고 있지 않은지 확인해 주세요.');
+    } catch {
+      alert(t('condition.cameraFail'));
     }
   };
 
@@ -56,13 +56,13 @@ function attachConditionCameraHandlers(st, render, apiClient, loadCondition) {
     const prev = document.getElementById('cond-capture-preview');
     const hint = document.getElementById('cond-camera-hint');
     if (!video || !video.srcObject || !canvas) {
-      alert('먼저 「카메라 켜기」를 눌러 주세요.');
+      alert(t('condition.camFirst'));
       return;
     }
     const w = video.videoWidth;
     const h = video.videoHeight;
     if (!w || !h) {
-      alert('영상이 준비될 때까지 잠시 후 다시 눌러 주세요.');
+      alert(t('condition.videoWait'));
       return;
     }
     canvas.width = w;
@@ -77,7 +77,7 @@ function attachConditionCameraHandlers(st, render, apiClient, loadCondition) {
       prev.style.display = 'block';
     }
     if (hint) {
-      hint.textContent = '촬영이 저장되었습니다. 「분석하기」를 누르면 이 사진으로 분석합니다.';
+      hint.textContent = t('condition.hintCaptured');
     }
   };
 
@@ -85,7 +85,7 @@ function attachConditionCameraHandlers(st, render, apiClient, loadCondition) {
     const video = document.getElementById('cond-video');
     const panel = document.getElementById('cond-camera-panel');
     if (st._stream) {
-      st._stream.getTracks().forEach((t) => t.stop());
+      st._stream.getTracks().forEach((tr) => tr.stop());
       st._stream = null;
     }
     if (video) video.srcObject = null;
@@ -123,7 +123,7 @@ function attachConditionCameraHandlers(st, render, apiClient, loadCondition) {
         st.analyzing = false;
         st.cameraB64 = null;
         if (st._stream) {
-          st._stream.getTracks().forEach((t) => t.stop());
+          st._stream.getTracks().forEach((tr) => tr.stop());
           st._stream = null;
         }
         const video = document.getElementById('cond-video');
@@ -141,16 +141,17 @@ function attachConditionCameraHandlers(st, render, apiClient, loadCondition) {
       .catch((e) => {
         st.analyzing = false;
         render();
-        alert(e.message || '분석 실패');
+        alert(e.message || t('condition.fail'));
       });
   };
 }
 
 export function createConditionPage(ctx) {
-  const { render, api: apiClient, loadCondition } = ctx;
+  const { render, api: apiClient, loadCondition, t, getDateLocale } = ctx;
+  const dl = getDateLocale();
 
   return {
-    title: '컨디션 분석',
+    title: 'Condition',
     render() {
       if (!window._hcCond) {
         window._hcCond = {
@@ -169,27 +170,27 @@ export function createConditionPage(ctx) {
           st.loading = false;
           render();
         });
-        return "<div class='card'><i class='fa fa-spinner fa-spin'></i> 불러오는 중...</div>";
+        return `<div class='card'><i class='fa fa-spinner fa-spin'></i> ${escapeHtml(t('common.loading'))}</div>`;
       }
       if (typeof st.cameraB64 === 'undefined') st.cameraB64 = null;
-      attachConditionCameraHandlers(st, render, apiClient, loadCondition);
+      attachConditionCameraHandlers(st, render, apiClient, loadCondition, t);
 
       const hist = (st.list || []).slice(0, 14);
       const fatigueTrend = hist.map((x) => x.fatigue).reverse();
       const trendLbl = hist
-        .map((x) => new Date(x.at).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' }))
+        .map((x) => new Date(x.at).toLocaleDateString(dl, { month: 'numeric', day: 'numeric' }))
         .reverse();
 
       return (
-        '<h2><i class="fa fa-face-smile-beam"></i> 컨디션 분석</h2>' +
-        '<p class="muted small">사진이 있으면 서버가 <strong>GitHub Models</strong>(<code>openai/gpt-4.1</code>, 환경변수 <code>GITHUB_TOKEN</code> 등)으로 웰니스 관점 분석을 시도합니다. 토큰이 없거나 API 오류 시 데모 추정값으로 대체됩니다. 의료 진단이 아닙니다. HTTPS 또는 localhost에서 카메라를 사용할 수 있습니다.</p>' +
+        `<h2><i class="fa fa-face-smile-beam"></i> ${escapeHtml(t('condition.title'))}</h2>` +
+        `<p class="muted small">${escapeHtml(t('condition.intro'))}</p>` +
         '<div class="card">' +
-        "<div class='section-label'><i class='fa fa-camera'></i> 웹캠으로 촬영</div>" +
-        '<p class="muted small">PC·모바일 브라우저에서 전면 카메라로 바로 찍어 분석할 수 있습니다.</p>' +
+        `<div class='section-label'><i class='fa fa-camera'></i> ${escapeHtml(t('condition.webcam'))}</div>` +
+        `<p class="muted small">${escapeHtml(t('condition.webcamHint'))}</p>` +
         '<div class="cond-camera-actions">' +
-        '<button type="button" class="btn-primary" onclick="startConditionCamera()">카메라 켜기</button>' +
-        '<button type="button" class="btn-secondary" onclick="snapConditionCamera()">촬영</button>' +
-        '<button type="button" class="btn-secondary" onclick="stopConditionCamera()">카메라 끄기</button>' +
+        `<button type="button" class="btn-primary" onclick="startConditionCamera()">${escapeHtml(t('condition.camOn'))}</button>` +
+        `<button type="button" class="btn-secondary" onclick="snapConditionCamera()">${escapeHtml(t('condition.snap'))}</button>` +
+        `<button type="button" class="btn-secondary" onclick="stopConditionCamera()">${escapeHtml(t('condition.camOff'))}</button>` +
         '</div>' +
         '<div id="cond-camera-panel" style="display:none;margin-top:8px">' +
         '<video id="cond-video" autoplay playsinline muted style="width:100%;max-width:480px;border-radius:12px;background:#ece8e4;display:block"></video>' +
@@ -199,48 +200,49 @@ export function createConditionPage(ctx) {
         '</div>' +
         '</div>' +
         '<div class="card">' +
-        "<div class='section-label'>갤러리에서 선택</div>" +
+        `<div class='section-label'>${escapeHtml(t('condition.gallery'))}</div>` +
         '<input type="file" id="face-file" accept="image/*" />' +
-        '<p class="muted small">웹캠 촬영을 쓰지 않을 때만 파일을 선택하세요. 촬영한 사진이 있으면 그것이 우선합니다.</p>' +
+        `<p class="muted small">${escapeHtml(t('condition.galleryHint'))}</p>` +
         '</div>' +
         '<div class="card">' +
-        "<div class='section-label'>피로도 & 분석</div>" +
-        '<label>주관적 피로 (1–10)</label> ' +
+        `<div class='section-label'>${escapeHtml(t('condition.fatigueTitle'))}</div>` +
+        `<label>${escapeHtml(t('condition.fatigueLabel'))}</label> ` +
         '<input type="range" id="fatigue-self" min="1" max="10" value="5" style="width:200px;vertical-align:middle" oninput="document.getElementById(\'fatigue-self-val\').textContent=this.value"/>' +
         ' <strong id="fatigue-self-val" style="color:#9a7b7b;font-size:1.1rem">5</strong>' +
         '<span class="muted small" style="margin-left:6px">/10</span>' +
         `<button type="button" class="btn-primary" style="margin-left:12px" onclick="runConditionAnalyze()" ${st.analyzing ? 'disabled' : ''}>` +
-        (st.analyzing ? '<i class="fa fa-spinner fa-spin"></i> 분석 중…' : '분석하기') +
+        (st.analyzing ? `<i class="fa fa-spinner fa-spin"></i> ${escapeHtml(t('condition.analyzing'))}` : escapeHtml(t('condition.analyze'))) +
         '</button>' +
         '</div>' +
         (st.analyzing
-          ? '<div class="card cond-analyzing-banner"><p style="margin:0"><i class="fa fa-circle-notch fa-spin"></i> <strong>분석 중입니다.</strong> 잠시만 기다려 주세요.</p></div>'
+          ? `<div class="card cond-analyzing-banner"><p style="margin:0"><i class="fa fa-circle-notch fa-spin"></i> <strong>${escapeHtml(t('condition.analyzingBanner'))}</strong></p></div>`
           : '') +
         (fatigueTrend.length
-          ? `<div class="card"><div class="section-label">피로 지수 추세 (최근 기록)</div>${chartBars(fatigueTrend, trendLbl, '#b8956c')}</div>`
+          ? `<div class="card"><div class="section-label">${escapeHtml(t('condition.trend'))}</div>${chartBars(fatigueTrend, trendLbl, '#b8956c')}</div>`
           : '') +
         '<div class="card">' +
-        "<div class='section-label'>기록</div>" +
+        `<div class='section-label'>${escapeHtml(t('condition.history'))}</div>` +
         (hist.length
           ? `<ul class="hist-list">${hist
               .map((x) => {
                 const tag =
                   x.source === 'github_models'
-                    ? '<span style="background:#ebe6e1;color:#4a4540;padding:2px 8px;border-radius:6px;font-size:0.82rem;margin-left:6px">GitHub Models' +
+                    ? '<span style="background:#ebe6e1;color:#4a4540;padding:2px 8px;border-radius:6px;font-size:0.82rem;margin-left:6px">' +
+                      escapeHtml(t('condition.githubTag')) +
                       (x.aiModel ? ' · ' + escapeHtml(x.aiModel) : '') +
                       '</span>'
-                    : '<span style="opacity:0.85;font-size:0.82rem;margin-left:6px">(데모)</span>';
+                    : `<span style="opacity:0.85;font-size:0.82rem;margin-left:6px">${escapeHtml(t('condition.demoTag'))}</span>`;
                 const selfPart =
                   x.fatigueSelf != null && x.fatigueSelf !== ''
-                    ? `주관적 피로 <b>${escapeHtml(String(x.fatigueSelf))}/10</b> · `
-                    : '주관적 피로 <b>—</b> · ';
+                    ? `${escapeHtml(t('condition.subjectShort'))} <b>${escapeHtml(String(x.fatigueSelf))}/10</b> · `
+                    : `${escapeHtml(t('condition.subjectShort'))} <b>${escapeHtml(t('common.none'))}</b> · `;
                 return (
-                  `<li><strong>${new Date(x.at).toLocaleString('ko-KR')}</strong>${tag}<br/>${selfPart}분석 피로 ${x.fatigue} · 피부 ${escapeHtml(x.skin)} · ${escapeHtml(x.mood)}` +
+                  `<li><strong>${escapeHtml(new Date(x.at).toLocaleString(dl))}</strong>${tag}<br/>${selfPart}${escapeHtml(t('condition.analysisShort'))} ${x.fatigue} · ${escapeHtml(t('dashboard.skin'))} ${escapeHtml(x.skin)} · ${escapeHtml(x.mood)}` +
                   `<div class="muted small" style="margin-top:8px;white-space:pre-wrap">${escapeHtml(x.note || '')}</div></li>`
                 );
               })
               .join('')}</ul>`
-          : '<p class="muted">기록이 없습니다.</p>') +
+          : `<p class="muted">${escapeHtml(t('condition.noHistory'))}</p>`) +
         '</div>'
       );
     },
