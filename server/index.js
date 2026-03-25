@@ -9,9 +9,19 @@ try {
   process.exit(1);
 }
 
-const app = require('./app');
-
 const PORT = process.env.PORT || 3010;
-app.listen(PORT, () => {
-  console.log(`HealthCare API: http://localhost:${PORT}/`);
-});
+
+(async () => {
+  try {
+    const { openDatabase } = require('../db/leveldb');
+    await openDatabase();
+  } catch (e) {
+    console.error('[FATAL] LevelDB를 열 수 없습니다.', e.message || e);
+    process.exit(1);
+  }
+
+  const app = require('./app');
+  app.listen(PORT, () => {
+    console.log(`HealthCare API: http://localhost:${PORT}/`);
+  });
+})();
