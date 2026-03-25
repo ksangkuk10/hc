@@ -218,7 +218,7 @@ export function createConditionPage(ctx) {
           ? `<div class="card cond-analyzing-banner"><p style="margin:0"><i class="fa fa-circle-notch fa-spin"></i> <strong>${escapeHtml(t('condition.analyzingBanner'))}</strong></p></div>`
           : '') +
         (fatigueTrend.length
-          ? `<div class="card"><div class="section-label">${escapeHtml(t('condition.trend'))}</div>${chartBars(fatigueTrend, trendLbl, '#b8956c')}</div>`
+          ? `<div class="card"><div class="section-label">${escapeHtml(t('condition.trend'))}</div>${chartBars(fatigueTrend, trendLbl, '#b8956c', 14)}</div>`
           : '') +
         '<div class="card">' +
         `<div class='section-label'>${escapeHtml(t('condition.history'))}</div>` +

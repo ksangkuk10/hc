@@ -162,7 +162,7 @@ export function createDashboardPage(ctx) {
         '</div>' +
         '<div class="card">' +
         `<div class='section-label'>${escapeHtml(t('dashboard.walk7d'))}</div>` +
-        chartBars(walkSeries, lbls, '#b8956c') +
+        chartBars(walkSeries, lbls, '#b8956c', undefined, 0.5, 5) +
         '</div>' +
         '<div class="dash-grid two">' +
         '<div class="card">' +
