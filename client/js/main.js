@@ -1,0 +1,202 @@
+import { api, getToken, setToken } from './api/http.js';
+import * as services from './api/services.js';
+import { getDate } from './utils/date.js';
+import { escapeHtml } from './utils/html.js';
+import { chartBars } from './utils/chart.js';
+import { fileToBase64 } from './utils/file.js';
+import { menuItems } from './views/menu.js';
+import { createRoutes } from './views/routes/index.js';
+
+let isLogin = false;
+let routes = {};
+
+function updateHeaderProfile() {
+  const el = document.getElementById('header-profile');
+  if (!el) return;
+  if (!isLogin) {
+    el.innerHTML = '';
+    return;
+  }
+  api('/api/auth/me')
+    .then((me) => {
+      el.innerHTML =
+        `<span class="hp-name">${escapeHtml(me.name || '')}</span> ` +
+        `<button type="button" class="hp-btn" onclick="location.hash='settings'" title="설정"><i class="fa fa-user-circle"></i></button>`;
+    })
+    .catch(() => {
+      el.innerHTML = '';
+    });
+}
+
+function updateNav(selected) {
+  if (!isLogin) {
+    document.getElementById('nav').innerHTML = '';
+    return;
+  }
+  document.getElementById('nav').innerHTML =
+    menuItems
+      .map(
+        (m) =>
+          `<button type="button" onclick="route('${m.key}')" class="${selected === m.key ? 'active' : ''}"><i class="${m.icon}"></i> ${m.label}</button>`,
+      )
+      .join('') +
+    '<button type="button" onclick="logout()" class="nav-logout"><i class="fa-solid fa-sign-out-alt"></i> 로그아웃</button>';
+}
+
+function render() {
+  const hash = window.location.hash.replace('#', '') || 'dashboard';
+  if (!isLogin) {
+    renderLogin();
+    document.getElementById('main').innerHTML = '';
+    document.getElementById('nav').innerHTML = '';
+    return;
+  }
+  document.getElementById('login-modal').style.display = 'none';
+  updateNav(hash);
+  updateHeaderProfile();
+  const page = routes[hash] || routes.dashboard;
+  document.getElementById('main').innerHTML = page.render();
+}
+
+function renderLogin() {
+  const modal = document.getElementById('login-modal');
+  modal.style.display = 'flex';
+  modal.innerHTML =
+    '<div class="login-card">' +
+    '<h2 style="color:#3af2cf;letter-spacing:1px">🧬 HealthCare</h2>' +
+    '<p class="muted small" style="margin-bottom:16px">건강 기록·컨디션·식단·상담을 한곳에서 (데모)</p>' +
+    '<div class="login-tabs">' +
+    '<button type="button" id="tab-login" class="active" onclick="showLoginTab(\'login\')">로그인</button>' +
+    '<button type="button" id="tab-register" onclick="showLoginTab(\'register\')">회원가입</button>' +
+    '</div>' +
+    '<div id="panel-login">' +
+    '<input id="uid" type="email" placeholder="이메일" autocomplete="username"/>' +
+    '<input id="pw" type="password" placeholder="비밀번호" autocomplete="current-password"/>' +
+    '<button type="button" onclick="login()">로그인</button>' +
+    '</div>' +
+    '<div id="panel-register" style="display:none">' +
+    '<input id="reg-email" type="email" placeholder="이메일"/>' +
+    '<input id="reg-name" placeholder="이름"/>' +
+    '<input id="reg-pw" type="password" placeholder="비밀번호 (4자 이상)"/>' +
+    '<button type="button" onclick="register()">가입하고 시작</button>' +
+    '</div>' +
+    '<div class="muted small" style="margin-top:14px">의료 데이터는 보안·법규 준수 하에 다뤄야 합니다. 본 데모는 로컬 저장입니다.</div>' +
+    '</div>';
+}
+
+function showLoginTab(tab) {
+  document.getElementById('tab-login').classList.toggle('active', tab === 'login');
+  document.getElementById('tab-register').classList.toggle('active', tab === 'register');
+  document.getElementById('panel-login').style.display = tab === 'login' ? 'block' : 'none';
+  document.getElementById('panel-register').style.display = tab === 'register' ? 'block' : 'none';
+}
+
+function tryRestoreSession() {
+  if (!getToken()) {
+    isLogin = false;
+    render();
+    return;
+  }
+  api('/api/auth/me')
+    .then(() => {
+      isLogin = true;
+      render();
+    })
+    .catch(() => {
+      setToken(null);
+      isLogin = false;
+      render();
+    });
+}
+
+const ctx = {
+  get render() {
+    return render;
+  },
+  api,
+  getDate,
+  escapeHtml,
+  chartBars,
+  fileToBase64,
+  updateHeaderProfile,
+  ...services,
+};
+
+routes = createRoutes(ctx);
+
+window.route = function (page) {
+  window.location.hash = page;
+  render();
+};
+
+window.login = function () {
+  const email = document.getElementById('uid').value;
+  const pw = document.getElementById('pw').value;
+  api('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password: pw }) })
+    .then((j) => {
+      setToken(j.token);
+      isLogin = true;
+      window._hcState = {};
+      window._hcDash = { loading: true };
+      window._hcCond = { list: null, loading: true };
+      window._hcFood = { list: null, loading: true };
+      window._hcConsult = { list: null, loading: true };
+      window._hcSet = { settings: null, loading: true };
+      document.getElementById('login-modal').style.display = 'none';
+      window.location.hash = 'dashboard';
+      updateHeaderProfile();
+      render();
+    })
+    .catch((e) => {
+      alert(e.message || '로그인 실패');
+    });
+};
+
+window.register = function () {
+  const email = document.getElementById('reg-email').value;
+  const name = document.getElementById('reg-name').value;
+  const pw = document.getElementById('reg-pw').value;
+  api('/api/auth/register', {
+    method: 'POST',
+    body: JSON.stringify({ email, password: pw, name }),
+  })
+    .then((j) => {
+      setToken(j.token);
+      isLogin = true;
+      window._hcState = {};
+      window._hcDash = { loading: true };
+      window._hcCond = { list: null, loading: true };
+      window._hcFood = { list: null, loading: true };
+      window._hcConsult = { list: null, loading: true };
+      window._hcSet = { settings: null, loading: true };
+      document.getElementById('login-modal').style.display = 'none';
+      window.location.hash = 'dashboard';
+      updateHeaderProfile();
+      render();
+    })
+    .catch((e) => {
+      alert(e.message || '가입 실패');
+    });
+};
+
+window.logout = function () {
+  api('/api/auth/logout', { method: 'POST', body: '{}' }).catch(() => {});
+  setToken(null);
+  isLogin = false;
+  window._hcState = {};
+  window._hcDash = null;
+  window._hcSet = null;
+  window.location.hash = '';
+  updateHeaderProfile();
+  render();
+};
+
+window.addEventListener('hashchange', () => {
+  const h = window.location.hash.replace('#', '') || 'dashboard';
+  if (isLogin && h === 'health' && window._hcState) {
+    window._hcState.forceHealthReload = true;
+  }
+  render();
+});
+window.addEventListener('DOMContentLoaded', tryRestoreSession);
+window.showLoginTab = showLoginTab;
